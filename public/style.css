@@ -2,15 +2,37 @@
    --accent sert aux aplats (boutons, interrupteurs, barres) avec du texte Bleu Nuit dessus : le blanc sur #159BFA ne fait que 3:1.
    --accent-ink sert au TEXTE coloré (liens, onglet actif) : un bleu plus foncé en thème clair (≥ 5:1 sur blanc), plus clair en sombre. */
 :root {
-  --bg: #eaf2ff; --surface: #ffffff; --surface-2: #f3f7fe; --border: #d3e1f5; --border-strong: #b9cdea;
-  --text: #07172f; --text-2: #3b4f6e; --muted: #566a88;
-  --accent: #159bfa; --accent-hover: #0e86dd; --accent-ink: #0b63ae; --accent-soft: #d9ecff; --on-accent: #07172f;
-  --ok: #15803d; --ok-soft: #e6f6ec; --warn: #b84f08; --warn-soft: #ffefe0; --crit: #c81e3a; --crit-soft: #fde8ec; --info: #0369a1; --info-soft: #e3f2fb;
-  --shadow: 0 1px 2px rgba(7, 23, 47, .06), 0 1px 3px rgba(7, 23, 47, .05);
+  /* Thème Glassmorphism clair : les variables historiques (--bg, --surface, --ok-soft…) sont remappées sur les tokens --sw-*,
+     pour que tout le CSS existant en profite sans changer de classes. */
+  --sw-bg: #eef2ff; --sw-orb-1: #a5b4fc; --sw-orb-2: #67e8f9; --sw-orb-3: #f9a8d4; --sw-orb-opacity: 1;
+  --sw-glass: rgba(255, 255, 255, .55); --sw-glass-soft: rgba(255, 255, 255, .40); --sw-glass-strong: rgba(255, 255, 255, .70);
+  --sw-glass-modal: rgba(255, 255, 255, .90); --sw-glass-border: rgba(255, 255, 255, .75);
+  --sw-glass-blur: blur(24px) saturate(180%);
+  --sw-shadow: 0 20px 50px rgba(30, 41, 99, .10), inset 0 1px 0 rgba(255, 255, 255, .9);
+  --sw-shadow-sm: 0 6px 18px rgba(30, 41, 99, .08);
+  --sw-text: #0f172a; --sw-text-2: #334155; --sw-muted: #475569; /* ne pas éclaircir : contraste AA sur le verre */
+  --sw-divider: rgba(15, 23, 42, .06); --sw-field-border: rgba(15, 23, 42, .18); --sw-grid: rgba(15, 23, 42, .12);
+  --sw-hover: rgba(255, 255, 255, .50); --sw-nav-active: rgba(255, 255, 255, .85); --sw-nav-active-fg: #0b4a82;
+  --sw-accent: #0b63ae; --sw-accent-hover: #084a83; --sw-on-accent: #ffffff; --sw-accent-shadow: 0 10px 28px rgba(11, 99, 174, .35);
+  --sw-selected-bg: #0f172a; --sw-selected-fg: #ffffff;
+  --sw-ok: #15803d; --sw-ok-bg: rgba(22, 163, 74, .12); --sw-ok-bd: rgba(22, 163, 74, .30); --sw-bar-ok: #16a34a;
+  --sw-warn: #b45309; --sw-warn-bg: rgba(217, 119, 6, .12); --sw-warn-bd: rgba(217, 119, 6, .35); --sw-warn-chip: #fef3c7;
+  --sw-alert: #be123c; --sw-alert-bg: rgba(225, 29, 72, .12); --sw-alert-bd: rgba(225, 29, 72, .35); --sw-alert-panel: rgba(255, 228, 230, .62);
+  --sw-alert-title: #4c0519; --sw-alert-text: #881337; --sw-alert-chip: #9f1239; --sw-alert-row: rgba(255, 228, 230, .55);
+  --sw-badge-count: #e11d48; --sw-badge-updates: #c2410c;
+  --sw-r-panel: 24px; --sw-r-card: 22px; --sw-r-control: 14px; --sw-r-sm: 10px; --sw-r-pill: 999px;
+  --sw-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --sw-font-display: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --bg: var(--sw-bg); --surface: #ffffff; --surface-2: rgba(255, 255, 255, .55); --border: rgba(15, 23, 42, .10); --border-strong: rgba(15, 23, 42, .20);
+  --text: var(--sw-text); --text-2: var(--sw-text-2); --muted: var(--sw-muted);
+  --accent: #159bfa; --accent-hover: var(--sw-accent-hover); --accent-ink: var(--sw-accent); --accent-soft: #d9ecff; --on-accent: #07172f;
+  --ok: var(--sw-ok); --ok-soft: var(--sw-ok-bg); --warn: var(--sw-warn); --warn-soft: var(--sw-warn-bg); --crit: var(--sw-alert); --crit-soft: var(--sw-alert-bg); --info: #0369a1; --info-soft: rgba(3, 105, 161, .10);
+  --shadow: var(--sw-shadow-sm);
   --shadow-lg: 0 20px 50px -12px rgba(7, 23, 47, .3);
-  --radius: 14px; --radius-sm: 9px;
+  --radius: var(--sw-r-card); --radius-sm: var(--sw-r-sm);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --sans: var(--sw-font);
   --diff-add: #e8f7ee; --diff-add-t: #14532d; --diff-del: #fdeaed; --diff-del-t: #7f1d2d;
 }
 :root[data-theme="dark"] {
@@ -20,6 +42,39 @@
   --ok: #4ade80; --ok-soft: #0b2b2e; --warn: #ff791f; --warn-soft: #3a2210; --crit: #fb7185; --crit-soft: #3a1626; --info: #38bdf8; --info-soft: #0f2c52;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4); --shadow-lg: 0 20px 50px -12px rgba(0, 0, 0, .7);
   --diff-add: #0e2c24; --diff-add-t: #86efac; --diff-del: #3a1626; --diff-del-t: #fda4af;
+  /* Équivalents sombres des tokens du thème verre (le thème sombre existant est conservé tel quel). */
+  --sw-bg: #07172f; --sw-orb-opacity: .22;
+  --sw-glass: rgba(13, 33, 64, .62); --sw-glass-soft: rgba(13, 33, 64, .45); --sw-glass-strong: rgba(18, 43, 80, .80);
+  --sw-glass-modal: #0d2140; --sw-glass-border: rgba(255, 255, 255, .09);
+  --sw-shadow: 0 20px 50px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .06); --sw-shadow-sm: 0 6px 18px rgba(0, 0, 0, .30);
+  --sw-text: #eaf2ff; --sw-text-2: #b3c5e0; --sw-muted: #8197b8;
+  --sw-divider: rgba(255, 255, 255, .07); --sw-field-border: rgba(255, 255, 255, .20); --sw-grid: rgba(255, 255, 255, .12);
+  --sw-hover: rgba(255, 255, 255, .06); --sw-nav-active: rgba(21, 155, 250, .18); --sw-nav-active-fg: #5cbcff;
+  --sw-accent: #5cbcff; --sw-accent-hover: #8ccfff; --sw-on-accent: #07172f; --sw-accent-shadow: 0 10px 28px rgba(21, 155, 250, .30);
+  --sw-selected-bg: #eaf2ff; --sw-selected-fg: #07172f;
+  --sw-ok: #4ade80; --sw-ok-bg: #0b2b2e; --sw-ok-bd: rgba(74, 222, 128, .30); --sw-bar-ok: #4ade80;
+  --sw-warn: #ff791f; --sw-warn-bg: #3a2210; --sw-warn-bd: rgba(255, 121, 31, .35); --sw-warn-chip: #3a2210;
+  --sw-alert: #fb7185; --sw-alert-bg: #3a1626; --sw-alert-bd: rgba(251, 113, 133, .35); --sw-alert-panel: rgba(58, 22, 38, .70);
+  --sw-alert-title: #ffe4e6; --sw-alert-text: #fecdd3; --sw-alert-chip: #fecdd3; --sw-alert-row: rgba(58, 22, 38, .55);
+  --sw-badge-count: #e11d48; --sw-badge-updates: #c2410c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sw-bg: #07172f; --sw-orb-opacity: .22;
+    --sw-glass: rgba(13, 33, 64, .62); --sw-glass-soft: rgba(13, 33, 64, .45); --sw-glass-strong: rgba(18, 43, 80, .80);
+    --sw-glass-modal: #0d2140; --sw-glass-border: rgba(255, 255, 255, .09);
+    --sw-shadow: 0 20px 50px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .06); --sw-shadow-sm: 0 6px 18px rgba(0, 0, 0, .30);
+    --sw-text: #eaf2ff; --sw-text-2: #b3c5e0; --sw-muted: #8197b8;
+    --sw-divider: rgba(255, 255, 255, .07); --sw-field-border: rgba(255, 255, 255, .20); --sw-grid: rgba(255, 255, 255, .12);
+    --sw-hover: rgba(255, 255, 255, .06); --sw-nav-active: rgba(21, 155, 250, .18); --sw-nav-active-fg: #5cbcff;
+    --sw-accent: #5cbcff; --sw-accent-hover: #8ccfff; --sw-on-accent: #07172f; --sw-accent-shadow: 0 10px 28px rgba(21, 155, 250, .30);
+    --sw-selected-bg: #eaf2ff; --sw-selected-fg: #07172f;
+    --sw-ok: #4ade80; --sw-ok-bg: #0b2b2e; --sw-ok-bd: rgba(74, 222, 128, .30); --sw-bar-ok: #4ade80;
+    --sw-warn: #ff791f; --sw-warn-bg: #3a2210; --sw-warn-bd: rgba(255, 121, 31, .35); --sw-warn-chip: #3a2210;
+    --sw-alert: #fb7185; --sw-alert-bg: #3a1626; --sw-alert-bd: rgba(251, 113, 133, .35); --sw-alert-panel: rgba(58, 22, 38, .70);
+    --sw-alert-title: #ffe4e6; --sw-alert-text: #fecdd3; --sw-alert-chip: #fecdd3; --sw-alert-row: rgba(58, 22, 38, .55);
+    --sw-badge-count: #e11d48; --sw-badge-updates: #c2410c;
+  }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -479,6 +534,172 @@ details.acc > .in { padding: 4px 14px 14px; }
 /* Accès limité (invité) : rien de ce qui crée, modifie, supprime ou règle ; ni Réglages ni Telegram. Les droits sont de toute façon refusés par le serveur. */
 .restricted .w-only, .restricted [data-nav="reglages"], .restricted .tg-state, .restricted .handle { display: none !important; }
 
+/* ───── Thème Glassmorphism ─────
+   Placé avant « Responsive » : les règles mobiles plus bas gardent la priorité à spécificité égale.
+   Tout passe par les tokens --sw-* (clairs par défaut, sombres redéfinis en haut de fichier). */
+body { background: var(--sw-bg); font-family: var(--sw-font); }
+
+/* Polices auto-hébergées (SIL OFL, licences dans /fonts) : aucune requête vers un tiers. Sous-ensemble « latin » : accents français, œ, €, guillemets.
+   Fichiers variables : un seul par famille couvre toutes les graisses utilisées. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("/fonts/inter-latin.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; font-style: normal; font-weight: 500 700; font-display: swap; src: url("/fonts/space-grotesk-latin.woff2") format("woff2"); }
+
+/* Halos décoratifs : trois dégradés radiaux fixes derrière l'interface (haut-gauche, droite, bas).
+   Des dégradés plutôt que des disques flous : aucun élément ne dépasse de l'écran et pas de filter: blur() coûteux.
+   Portés par body::before (et non par une <div> de index.html) : toute page qui charge cette feuille les a, y compris les pages
+   de compte de la version hébergée, qui ne reprennent que style.css. z-index: -1 = derrière tout le contenu, sans toucher à son empilement. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: var(--sw-orb-opacity);
+  background:
+    radial-gradient(circle 520px at 4% 2%, color-mix(in srgb, var(--sw-orb-1) 70%, transparent), transparent 72%),
+    radial-gradient(circle 480px at 100% 55%, color-mix(in srgb, var(--sw-orb-2) 60%, transparent), transparent 72%),
+    radial-gradient(circle 460px at 48% 100%, color-mix(in srgb, var(--sw-orb-3) 55%, transparent), transparent 72%);
+}
+
+/* Surface « verre » : partagée par la barre latérale, les cartes et l'aperçu. */
+.sw-glass, .sidebar, .card, .pv {
+  background: var(--sw-glass);
+  -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur);
+  border: 1px solid var(--sw-glass-border);
+  box-shadow: var(--sw-shadow);
+  border-radius: var(--sw-r-card);
+}
+/* Sans backdrop-filter (vieux navigateurs) ou si l'utilisateur réduit les transparences : fond presque opaque, texte lisible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sw-glass, .sidebar, .card, .pv, .toolbar:not(.sub), .tabs, .modal, .drawer { background: var(--sw-glass-modal); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sw-glass, .sidebar, .card, .pv, .toolbar:not(.sub), .tabs, .modal, .drawer { background: var(--sw-glass-modal); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+:focus-visible { outline-color: var(--sw-accent); }
+
+/* Titres */
+h1 { font: 700 clamp(28px, 3.4vw, 40px)/1.1 var(--sw-font-display); letter-spacing: -.02em; text-transform: none; }
+.detail-head h1 { font-size: clamp(24px, 2.6vw, 32px); }
+.page-head p { font-size: 15px; }
+.stat .v, .kpi .v, .uhero h2, .health h2, .grp-head h3 { font-family: var(--sw-font-display); }
+
+/* Barre latérale : verre flottant, collée en haut (le pied reste sous la navigation). */
+.shell { padding: 16px; gap: 20px; }
+.sidebar { top: 16px; height: auto; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px 16px; border-radius: var(--sw-r-panel); border-right: 1px solid var(--sw-glass-border); }
+.side-foot { margin-top: 18px; }
+.nav a { min-height: 44px; border-radius: 12px; border: 1px solid transparent; color: var(--sw-text-2); }
+.nav a:hover { background: var(--sw-hover); }
+.nav a.active { background: var(--sw-nav-active); border-color: var(--sw-glass-border); box-shadow: var(--sw-shadow-sm); color: var(--sw-nav-active-fg); }
+.badge { background: var(--sw-badge-count); }
+.badge.warn { background: var(--sw-badge-updates); color: #fff; }
+.plan-box { background: var(--sw-glass-soft); border-color: var(--sw-glass-border); border-radius: 14px; }
+.plan-box a { color: var(--sw-accent); }
+.tg-state { background: var(--sw-glass-soft); border: 1px solid var(--sw-glass-border); min-height: 44px; border-radius: 12px; }
+.tg-state:hover { background: var(--sw-hover); }
+.brand .ver { background: var(--sw-glass-strong); border-color: var(--sw-glass-border); }
+
+/* Boutons : 44 px de haut (36 px pour .sm, dont la zone cliquable est étendue à 44 px par ::after). */
+.btn { height: 44px; border-radius: var(--sw-r-control); background: var(--sw-glass-strong); border: 1px solid var(--sw-glass-border); box-shadow: var(--sw-shadow-sm); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.btn:hover { background: var(--sw-glass-strong); filter: brightness(.97); }
+.btn.sm { height: 36px; position: relative; }
+.btn.sm::after { content: ""; position: absolute; inset: -4px -2px; }
+.btn.icon { width: 44px; border-radius: 12px; }
+.btn.icon.sm { width: 36px; }
+.btn.primary { background: var(--sw-accent); border-color: var(--sw-accent); color: var(--sw-on-accent); box-shadow: var(--sw-accent-shadow); }
+.btn.primary:hover { background: var(--sw-accent-hover); border-color: var(--sw-accent-hover); filter: none; }
+.btn.ghost { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; }
+.btn.ghost:hover { background: var(--sw-hover); }
+.toolbar.sub .btn.w-only { background: transparent; box-shadow: none; border: 1px dashed var(--sw-field-border); } /* « Nouveau groupe » */
+.btn.danger { color: var(--sw-alert); background: var(--sw-alert-panel); border-color: var(--sw-alert-bd); }
+.btn.danger.solid { background: var(--crit); border-color: var(--crit); color: #fff; }
+
+/* Champs */
+.input, select.input, textarea.input { height: 44px; border-radius: var(--sw-r-control); background: var(--sw-glass-strong); border-color: var(--sw-field-border); }
+textarea.input { height: auto; }
+.input:focus { border-color: var(--sw-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sw-accent) 22%, transparent); }
+.search .input { padding-left: 38px; }
+
+/* Barre de filtres et contrôle segmenté */
+.toolbar:not(.sub) { padding: 12px; background: var(--sw-glass-soft); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border: 1px solid var(--sw-glass-border); border-radius: var(--sw-r-card); }
+.seg { background: var(--sw-glass-soft); border-radius: var(--sw-r-control); padding: 4px; }
+.seg button { min-height: 36px; border-radius: 11px; color: var(--sw-text-2); }
+.seg button.on { background: var(--sw-selected-bg); color: var(--sw-selected-fg); box-shadow: var(--sw-shadow-sm); }
+
+/* Cartes, pastilles, chips */
+.card-head { border-bottom-color: var(--sw-divider); }
+.pill { height: 24px; border: 1px solid transparent; }
+.pill.ok { border-color: var(--sw-ok-bd); }
+.pill.warn { border-color: var(--sw-warn-bd); }
+.pill.crit { border-color: var(--sw-alert-bd); }
+.chip { background: var(--sw-glass-strong); border: 1px solid var(--sw-glass-border); border-radius: 8px; color: var(--sw-text-2); }
+.chip.warn { background: var(--sw-warn-chip); color: var(--sw-warn); border-color: var(--sw-warn-bd); } /* échéance proche */
+.chip.crit { background: var(--sw-alert-bg); color: var(--sw-alert); border-color: var(--sw-alert-bd); }
+.chip.ok { background: var(--sw-ok-bg); color: var(--sw-ok); border-color: var(--sw-ok-bd); }
+.gchip { background: var(--sw-glass-strong); border: 1px solid var(--sw-glass-border); }
+
+/* Bandeau de santé / d'alerte */
+.health { border-radius: var(--sw-r-panel); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); box-shadow: var(--sw-shadow); }
+.health.idle { background: var(--sw-glass); border-color: var(--sw-glass-border); }
+.health.crit { background: var(--sw-alert-panel); border-color: var(--sw-alert-bd); box-shadow: 0 20px 50px rgba(225, 29, 72, .10); }
+.health.crit .big { background: #e11d48; }
+.health.crit h2 { color: var(--sw-alert-title); }
+.health.crit p { color: var(--sw-alert-text); }
+.health-tags a.chip { background: var(--sw-glass-strong); border: 1px solid var(--sw-alert-bd); color: var(--sw-alert-chip); border-radius: var(--sw-r-pill); }
+.health-tags a.chip:hover { background: var(--sw-glass-strong); filter: brightness(.97); }
+.health .big, .uhero .big { width: 52px; height: 52px; }
+
+/* Statistiques et KPI */
+.stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.stat { padding: 22px; }
+.stat .k, .kpi .k { font-size: 13px; color: var(--sw-muted); }
+.stat .v { font-size: 36px; font-weight: 700; line-height: 1.1; }
+.kpis { gap: 16px; }
+.kpi { padding: 18px 20px; }
+.kpi .v { font-size: 28px; line-height: 1.15; }
+
+/* Liste des sites */
+.sections { gap: 24px; }
+.grp-head h3 { font-size: 18px; font-weight: 700; }
+.site { padding: 14px 20px; border-bottom-color: var(--sw-divider); }
+.site:hover { background: var(--sw-hover); }
+.thumb { width: 72px; height: 46px; border-radius: var(--sw-r-sm); border: 2px solid var(--sw-glass-border); box-shadow: var(--sw-shadow-sm); }
+.avatar { border-radius: var(--sw-r-sm); }
+.id .issue { color: var(--sw-alert); font-weight: 600; }
+.site:has(.issue:not(.warn)) { background: var(--sw-alert-row); } /* ligne en alerte */
+.metric span, .id .url { color: var(--sw-muted); }
+.grp-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc, var(--muted)) 20%, transparent); }
+.gtoggle { min-width: 36px; }
+
+/* Onglets de la fiche : barre de verre, onglet actif plein. */
+.tabs { gap: 4px; padding: 4px; background: var(--sw-glass-soft); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border: 1px solid var(--sw-glass-border); border-radius: 18px; }
+.tabs a { min-height: 44px; padding: 0 16px; margin-bottom: 0; border-bottom: 0; border-radius: 13px; color: var(--sw-text-2); }
+.tabs a:hover { background: var(--sw-hover); color: var(--sw-text); }
+.tabs a.on { background: var(--sw-selected-bg); color: var(--sw-selected-fg); box-shadow: 0 6px 18px rgba(15, 23, 42, .2); }
+.tabs-nav .ic { background: var(--sw-glass-modal); }
+
+/* Courbes, barres de disponibilité, signaux, aperçu */
+.spark path:last-child, .chart path[fill="none"] { stroke: var(--sw-accent); }
+.chart path[opacity] { fill: var(--sw-accent); }
+.chart line { stroke: var(--sw-grid); }
+.chart text { fill: var(--sw-muted); font-size: 12px; }
+.ub, .ticks { gap: 3px; }
+.ub { height: 36px; }
+.ub i, .ticks i { border-radius: 4px; background: var(--sw-bar-ok); }
+.ub i.warn, .ticks i.warn { background: var(--warn); }
+.ub i.bad, .ticks i.bad { background: var(--crit); }
+.ub i.none, .ticks i.none { background: color-mix(in srgb, var(--sw-text) 8%, transparent); }
+.signals { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.signal h3 { font-size: 15px; font-weight: 700; }
+.signal h3 .ic { color: var(--sw-accent); }
+.pv-bar { background: var(--sw-glass-soft); border-bottom-color: var(--sw-divider); }
+.pv-dots i { background: #cbd5e1; }
+.pv-url { background: var(--sw-glass-strong); border-color: var(--sw-glass-border); }
+.table th, .table td, .tl-item, .alert, .chk-row, .rec-row, .toggle-row { border-color: var(--sw-divider); }
+.day { background: var(--sw-glass-soft); }
+
+/* Fenêtres : verre plus opaque pour garder le texte lisible. */
+.modal, .drawer { background: var(--sw-glass-modal); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border: 1px solid var(--sw-glass-border); }
+.modal { border-radius: var(--sw-r-panel); }
+.drawer { border-radius: var(--sw-r-panel) 0 0 var(--sw-r-panel); }
+.drawer-foot { background: transparent; }
+.drawer-head, .drawer-foot { border-color: var(--sw-divider); }
+
 /* ───── Responsive ───── */
 @media (max-width: 1100px) {
   .ov-top { grid-template-columns: 1fr; }
@@ -487,8 +708,9 @@ details.acc > .in { padding: 4px 14px 14px; }
   .site .sigs, .site .col-metric { display: none; }
 }
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
-  .sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; flex-direction: row; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid var(--border); z-index: 40; }
+  .shell { grid-template-columns: 1fr; padding: 0; }
+  /* Barre du bas : le verre est conservé, mais sans le défilement ni le débordement de la barre latérale de bureau. */
+  .sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; max-height: none; overflow: visible; flex-direction: row; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid var(--sw-glass-border); border-radius: 20px 20px 0 0; z-index: 40; }
   .brand, .side-foot .tg-state, .side-foot .plan-box { display: none; } /* la barre du bas reste réservée à la navigation */
   .nav { flex-direction: row; flex: 1; justify-content: space-around; }
   .nav a { flex-direction: column; gap: 2px; font-size: 11.5px; padding: 6px 12px; position: relative; }
@@ -512,7 +734,7 @@ details.acc > .in { padding: 4px 14px 14px; }
   .callout .btn { margin-left: 34px; }
   .row { flex-direction: column; gap: 0; }
   .tl-head { flex-wrap: wrap; }
-  h1 { font-size: 21px; }
+  h1, .detail-head h1 { font-size: 26px; }
   .nav { min-width: 0; }
   .ub { gap: 1px; } /* 90 jours : 2 px de minimum par barre dépasseraient de l'écran d'un téléphone */
 }
