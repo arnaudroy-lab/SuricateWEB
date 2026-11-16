@@ -45,7 +45,9 @@ export async function readJson(req) {
 }
 
 /** Pages publiques et rapports : aucun script en ligne, aucune ressource extérieure. */
-export const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+// Rapport et page de statut reprennent la charte de l'application : sa feuille de style, ses polices auto-hébergées et son logo, tous du
+// même site (jamais une ressource externe). Rien d'autre n'est autorisé : pas de connexion réseau, pas de cadre, pas de formulaire.
+export const REPORT_CSP = "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 export function sendHtml(res, html, extra = {}) {
   const buf = Buffer.from(html, 'utf8');

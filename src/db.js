@@ -1028,9 +1028,13 @@ export async function responseStats(watchId, days, now = Date.now()) {
   return { avg: r.n ? Math.round(r.s / r.n) : null, min: r.min, max: r.max, n: r.n || 0 };
 }
 
-/** Temps de réponse moyen / min / max sur [from, to[ d'après les agrégats journaliers (jours UTC entiers). */
+/**
+ * Temps de réponse moyen / min / max sur [from, to[ d'après les agrégats journaliers (jours UTC entiers).
+ * Les bornes d'un mois local (+60 min pour Paris) tombent la veille à 23 h UTC : on les ramène au jour UTC le plus proche, sinon le dernier
+ * jour du mois précédent entrait dans la moyenne du mois demandé.
+ */
 export async function responseBetween(watchId, from, to) {
-  const r = await db.get('SELECT SUM(sum_ms) s, SUM(ms_n) n, MIN(min_ms) min, MAX(max_ms) max, SUM(n) checks FROM daily_stats WHERE watch_id = ? AND day >= ? AND day < ?', [watchId, Math.floor(from / DAY_MS), Math.ceil(to / DAY_MS)]);
+  const r = await db.get('SELECT SUM(sum_ms) s, SUM(ms_n) n, MIN(min_ms) min, MAX(max_ms) max, SUM(n) checks FROM daily_stats WHERE watch_id = ? AND day >= ? AND day < ?', [watchId, Math.round(from / DAY_MS), Math.round(to / DAY_MS)]);
   return { avg: r.n ? Math.round(r.s / r.n) : null, min: r.min ?? null, max: r.max ?? null, checks: r.checks || 0 };
 }
 
