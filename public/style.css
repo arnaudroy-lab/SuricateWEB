@@ -711,12 +711,20 @@ textarea.input { height: auto; }
   .shell { grid-template-columns: 1fr; padding: 0; }
   /* Barre du bas : le verre est conservé, mais sans le défilement ni le débordement de la barre latérale de bureau. */
   .sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; max-height: none; overflow: visible; flex-direction: row; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid var(--sw-glass-border); border-radius: 20px 20px 0 0; z-index: 40; }
-  .brand, .side-foot .tg-state, .side-foot .plan-box { display: none; } /* la barre du bas reste réservée à la navigation */
-  .nav { flex-direction: row; flex: 1; justify-content: space-around; }
+  .side-foot .tg-state, .side-foot .plan-box { display: none; } /* la barre du bas reste réservée à la navigation */
+  /* Marque (logo, nom, version) : un bandeau de verre fixé en haut de l'écran. Le verre de la barre du bas passe sur un pseudo-élément, car un
+     backdrop-filter sur la barre elle-même en ferait le repère des éléments « fixed » qu'elle contient : le bandeau ne pourrait plus se caler
+     en haut de la fenêtre. Ce CSS est partagé avec les pages de compte de la version hébergée, qui reprennent le même balisage. */
+  .sidebar { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; box-shadow: none; }
+  .sidebar::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--sw-glass); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border-top: 1px solid var(--sw-glass-border); border-radius: 20px 20px 0 0; box-shadow: var(--sw-shadow); }
+  .brand { display: flex; align-items: center; position: fixed; top: 0; left: 0; right: 0; z-index: 1; height: calc(54px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 16px 0; background: var(--sw-glass); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border-bottom: 1px solid var(--sw-glass-border); box-shadow: var(--sw-shadow-sm); }
+  .brand small { display: none; } /* le sous-titre n'a pas de place dans le bandeau ; le nom et la version suffisent */
+  .side-actions { display: grid; grid-template-columns: repeat(2, auto); gap: 2px 4px; align-content: center; } /* dépôt, documentation, thème, déconnexion : deux lignes de deux */
+  .nav { flex-direction: row; flex: 1; justify-content: space-around; align-items: center; } /* centrées : la barre est plus haute que les trois liens (icônes sur deux lignes) */
   .nav a { flex-direction: column; gap: 2px; font-size: 11.5px; padding: 6px 12px; position: relative; }
   .nav a .badge { position: absolute; top: 0; right: 6px; margin: 0; min-width: 17px; height: 17px; font-size: 10.5px; }
   .side-foot { margin: 0; flex-direction: row; }
-  .main { padding: 18px 16px 100px; }
+  .main { padding: calc(72px + env(safe-area-inset-top)) 16px 112px; }
   .stats, .kpis, .ov-top .kpis { grid-template-columns: repeat(2, 1fr); }
   .site { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 14px; }
   .site .spark-col { grid-column: 1 / -1; order: 5; }
@@ -745,7 +753,10 @@ textarea.input { height: auto; }
   .seg { max-width: 100%; flex-wrap: wrap; }
   .seg button { padding: 5px 9px; }
 }
-@media (max-width: 360px) {
-  .side-actions a.ext { display: none; } /* dépôt et documentation : accessibles depuis un écran plus large */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 860px) { .sidebar::before, .brand { background: var(--sw-glass-modal); } }
+}
+@media (max-width: 860px) and (prefers-reduced-transparency: reduce) {
+  .sidebar::before, .brand { background: var(--sw-glass-modal); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
