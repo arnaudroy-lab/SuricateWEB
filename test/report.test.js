@@ -9,6 +9,7 @@ process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'suricate-report-'));
 
 const dbm = await import('../src/db.js');
 const { monthRange, siteReport, renderReport, statusData, renderStatusPage, fmtPct } = await import('../src/report.js');
+const { REPORT_CSP } = await import('../src/http.js');
 
 const H = 3600e3;
 const D = 86400e3;
@@ -71,6 +72,11 @@ await dbm.setCmsReport(w.id, {
   history: [{ ts: Date.parse('2026-10-15T00:00:00Z'), kind: 'core', name: 'WordPress', from: '6.7.1', to: '6.8' }, { ts: Date.parse('2026-09-15T00:00:00Z'), kind: 'ext', name: 'Ancienne', from: '1', to: '2' }],
   integrity: { checkedAt: NOW - H, ok: true, core: { known: true, modified: [], added: [], missing: [] }, plugins: [{ known: true, modified: ['a.php'], added: [], missing: [] }], uploads: { php: ['x.php'] } },
   admins: { count: 3, added: [{ id: 9 }], extra: 1, recent: [], known: [] },
+  code: { enabled: true, ok: true, checkedAt: NOW - H, inventory: 120, drift: { files: [], more: 0, days: 14 }, files: [
+    { path: 'wp-content/uploads/secret-chemin.php', level: 'strong', origin: 'change', known: false, hits: ['eval_decode'] },
+    { path: 'wp-content/plugins/x/lib.php', level: 'review', origin: 'baseline', known: false, hits: [] },
+    { path: 'wp-content/plugins/y/enc.php', level: 'vendor', origin: 'baseline', known: false, hits: [] },
+  ] },
 }, 0);
 const watch = await dbm.getWatch(w.id);
 
@@ -132,13 +138,57 @@ test('rapport HTML : échappement, mois précédent / suivant, aucun détail tec
   assert.match(cur, /mois en cours/);
 });
 
+test('rapport : recherche de code suspect résumée sans jamais exposer un chemin ni un motif', async () => {
+  const s = await siteReport(watch, monthRange('2026-10', 0, NOW), NOW);
+  assert.deepEqual(s.cms.code, { checkedAt: NOW - H, alerting: 1, critical: true, toReview: 1, tracked: 120 }, 'le code chiffré par un éditeur n’alerte pas et ne compte pas à relire');
+  const html = renderReport({ title: 'x', sites: [s], range: monthRange('2026-10', 0, NOW), nav: { base: '/r' }, generatedAt: NOW });
+  assert.match(html, /Recherche de code suspect/);
+  assert.match(html, /1 fichier à vérifier/);
+  assert.match(html, /1 fichier à relire/);
+  assert.doesNotMatch(html, /secret-chemin|eval_decode/, 'le rapport va au client : ni chemin de fichier ni motif');
+});
+
+test('rapport : un contrôle de sécurité désactivé pour le site n’affiche plus d’anciens résultats', async () => {
+  const off = { ...watch, config: { ...watch.config, cms: { ...watch.config.cms, security: false } } };
+  const s = await siteReport(off, monthRange('2026-10', 0, NOW), NOW);
+  assert.deepEqual([s.cms.integrity, s.cms.code, s.cms.admins], [null, null, null]);
+  assert.doesNotMatch(renderReport({ title: 'x', sites: [s], range: monthRange('2026-10', 0, NOW), nav: { base: '/r' }, generatedAt: NOW }), /Sécurité du site/);
+  const noScan = { ...watch, config: { ...watch.config, cms: { ...watch.config.cms, codeScan: false } } };
+  const s2 = await siteReport(noScan, monthRange('2026-10', 0, NOW), NOW);
+  assert.equal(s2.cms.code, null);
+  assert.ok(s2.cms.integrity && s2.cms.admins, 'les autres contrôles restent');
+});
+
+test('rapport : un mois local (+60 min) ne reprend pas le dernier jour du mois précédent dans le temps de réponse', async () => {
+  await dbm.upsertDaily(w.id, Date.parse('2026-09-30T12:00:00Z'), true, 9000); // un jour de septembre, très lent
+  const paris = await siteReport(watch, monthRange('2026-10', 60, NOW), NOW);
+  assert.equal(paris.response.avg, 300);
+});
+
+test('pages publiques : charte de l’application (logo, feuille de style, polices) sous une politique de contenu qui reste fermée', async () => {
+  const range = monthRange('2026-10', 0, NOW);
+  const html = renderReport({ title: 'x', sites: [await siteReport(watch, range, NOW)], range, nav: { base: '/r' }, generatedAt: NOW });
+  const status = renderStatusPage({ title: 'x', host: 'x', data: await statusData(await dbm.getWatch(w.id), 0, NOW), now: NOW });
+  for (const [name, page] of [['rapport', html], ['statut', status]]) {
+    assert.match(page, /<link rel="stylesheet" href="\/style\.css">/, `${name} : la feuille de l’application`);
+    assert.match(page, /<img src="\/icon-192\.png"/, `${name} : le logo`);
+    assert.match(page, /<span class="suricate">Suricate<\/span><span class="web">Web<\/span>/, `${name} : le nom en deux couleurs`);
+    assert.doesNotMatch(page, /(src|href)="https?:/, `${name} : aucune ressource externe`);
+  }
+  assert.match(REPORT_CSP, /font-src 'self'/);
+  assert.match(REPORT_CSP, /style-src 'self' 'unsafe-inline'/);
+  assert.match(REPORT_CSP, /img-src 'self' data:/);
+  assert.match(REPORT_CSP, /default-src 'none'/);
+  assert.doesNotMatch(REPORT_CSP, /https?:|\*|connect-src/);
+});
+
 test('rapport d’un groupe : synthèse puis un chapitre par site', async () => {
   const w2 = await dbm.createWatch({ name: 'Autre site', url: 'https://autre.example/', interval: 5, config: { checks: { dns: false, tls: false, rdap: false } } });
   const range = monthRange('2026-10', 0, NOW);
   const html = renderReport({ title: 'Client Martin', sites: [await siteReport(watch, range, NOW), await siteReport(await dbm.getWatch(w2.id), range, NOW)], range, nav: { base: '/api/groups/1/report' }, generatedAt: NOW });
   assert.match(html, /<h2>Synthèse<\/h2>/);
   assert.match(html, /Autre site/);
-  assert.equal((html.match(/class="site /g) || []).length, 2);
+  assert.equal((html.match(/class="rp-site /g) || []).length, 2);
   const solo = renderReport({ title: 's', sites: [await siteReport(watch, range, NOW)], range, nav: { base: '/r' }, generatedAt: NOW });
   assert.doesNotMatch(solo, /Synthèse/);
 });
