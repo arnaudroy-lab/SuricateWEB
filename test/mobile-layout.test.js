@@ -46,14 +46,28 @@ test('téléphone : la frise de 90 jours et la page tiennent en largeur, de 320 
   }
 });
 
-test('téléphone : la barre de navigation du bas tient en largeur (liens secondaires masqués sur très petit écran)', { skip, timeout: 90000 }, async () => {
-  for (const [width, ext] of [[320, 0], [360, 0], [375, 2], [414, 2]]) {
+test('téléphone : la barre du bas tient en largeur, ses quatre icônes sont sur deux lignes et la marque reste visible en haut', { skip, timeout: 90000 }, async () => {
+  for (const width of [320, 360, 375, 414]) {
     const { page, open } = await mobilePage(width);
     try {
       await open('#/', '.sidebar');
-      const bar = await page.run(`(() => { const items = [...document.querySelectorAll('.sidebar a, .sidebar button')].filter((e) => e.getBoundingClientRect().width > 0); return { vw: innerWidth, maxRight: Math.max(...items.map((e) => Math.round(e.getBoundingClientRect().right))), ext: [...document.querySelectorAll('.side-actions a.ext')].filter((e) => e.getBoundingClientRect().width > 0).length, n: items.length }; })()`);
+      const bar = await page.run(`(() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: r.width }; };
+        const items = [...document.querySelectorAll('.sidebar a, .sidebar button')].filter((e) => e.getBoundingClientRect().width > 0);
+        const icons = [...document.querySelectorAll('.side-actions a, .side-actions button')].filter((e) => e.getBoundingClientRect().width > 0).map(box);
+        const brand = document.querySelector('.brand');
+        const ver = brand.querySelector('.ver');
+        const main = box(document.querySelector('.main'));
+        return { vw: innerWidth, maxRight: Math.max(...items.map((e) => Math.round(e.getBoundingClientRect().right))), icons, brand: box(brand), logo: box(brand.querySelector('img')), ver: ver ? box(ver) : null, name: brand.querySelector('.brand-name').textContent, shown: getComputedStyle(brand).display, firstTitle: Math.round(document.querySelector('.main h1').getBoundingClientRect().top), mainTop: main.top };
+      })()`);
       assert.ok(bar.maxRight <= bar.vw, `${width}px : le dernier bouton de la barre (${bar.maxRight}px) est dans l'écran (${bar.vw}px)`);
-      assert.equal(bar.ext, ext, `${width}px : ${ext ? 'GitHub et documentation visibles' : 'GitHub et documentation masqués'}`);
+      assert.equal(bar.icons.length, 4, `${width}px : dépôt, documentation, thème et déconnexion visibles`);
+      assert.equal(new Set(bar.icons.map((i) => i.top)).size, 2, `${width}px : les icônes sont sur deux lignes`);
+      assert.equal(new Set(bar.icons.map((i) => i.left)).size, 2, `${width}px : deux colonnes`);
+      assert.ok(bar.brand.top === 0 && bar.brand.right <= bar.vw && bar.brand.w >= bar.vw - 1, `${width}px : le bandeau de marque couvre le haut de l'écran`);
+      assert.ok(bar.shown !== 'none' && bar.logo.w > 0 && /Suricate\s*Web/.test(bar.name), `${width}px : logo et nom visibles`);
+      assert.ok(bar.ver && bar.ver.w > 0 && bar.ver.right <= bar.vw, `${width}px : la version est visible et dans l'écran`);
+      assert.ok(bar.firstTitle >= bar.brand.bottom, `${width}px : le titre de la page n'est pas masqué par le bandeau (${bar.firstTitle}px ≥ ${bar.brand.bottom}px)`);
     } finally { page.close(); }
   }
 });
