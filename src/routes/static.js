@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
 import { send } from '../http.js';
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
 
 export function createStaticHandler(publicDir) {
   return async function serveStatic(req, res, pathname) {
@@ -21,6 +21,7 @@ export function createStaticHandler(publicDir) {
         'x-content-type-options': 'nosniff',
         'x-frame-options': 'DENY',
         'referrer-policy': 'no-referrer',
+        // Les polices du thème sont auto-hébergées (public/fonts) : font-src retombe sur default-src 'self', rien d'externe.
         'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'",
       });
       res.end(buf);
