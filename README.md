@@ -1,3 +1,6 @@
+![SuricateWeb](docs/screenshots/suricateweb.jpg)
+
+
 # SuricateWeb
 
 Surveillance de sites web pour webmasters : **détecter un piratage, une défiguration, un remplacement ou un transfert de domaine sans ouvrir le site**, et être alerté sur **Telegram**.
