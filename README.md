@@ -1,4 +1,6 @@
-![SuricateWeb](docs/screenshots/suricateweb_banner.jpg)
+<p align="center">
+  <img src="docs/screenshots/suricateweb_banner.jpg" alt="SuricateWeb" width="400">
+</p>
 
 
 # SuricateWeb
@@ -38,8 +40,9 @@ Les **captures d'écran** régulières montrent ce que voient réellement les vi
 ### Être alerté sur Telegram
 
 Un seul message par contrôle, avec la sévérité, le détail, un extrait des lignes modifiées, deux **boutons** (« Marquer comme lu » et « Ouvrir dans SuricateWeb ») et, pour les alertes critiques visibles sur la page, **une photo de la page au moment de l'alerte**. Le texte de cette image est celui que l'application génère ; seul l'habillage de la conversation est une reconstitution.
-
+<p align="center">
 <img src="docs/screenshots/telegram.png" alt="Message Telegram d'alerte critique avec photo de la page défigurée" width="420">
+</p>
 
 ### Disponibilité, domaine et alertes
 
