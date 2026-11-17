@@ -1,4 +1,4 @@
-![SuricateWeb](docs/screenshots/suricateweb.jpg)
+![SuricateWeb](docs/screenshots/suricateweb_banner.jpg)
 
 
 # SuricateWeb
