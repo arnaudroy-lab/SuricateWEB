@@ -1,17 +1,17 @@
 {
   "name": "suricateweb",
-  "version": "1.24.2",
+  "version": "1.24.3",
   "description": "SuricateWeb — surveillance de sites web (défiguration, piratage, remplacement, transfert) avec alertes Telegram. Node.js pur, zéro dépendance.",
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/burotica49/SuricateWeb.git"
+    "url": "git+https://github.com/arnaudroy-lab/SuricateWEB.git"
   },
-  "homepage": "https://github.com/burotica49/SuricateWeb#readme",
+  "homepage": "https://github.com/arnaudroy-lab/SuricateWEB#readme",
   "bugs": {
-    "url": "https://github.com/burotica49/SuricateWeb/issues"
+    "url": "https://github.com/arnaudroy-lab/SuricateWEB/issues"
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
