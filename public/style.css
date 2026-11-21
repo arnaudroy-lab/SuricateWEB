@@ -277,8 +277,9 @@ textarea.input { height: auto; min-height: 84px; padding: 10px 12px; resize: ver
 .incident.warn > .ic { color: var(--warn); }
 .incident.info { background: var(--info-soft); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
 .incident.info > .ic { color: var(--info); }
-.incident b { display: block; }
-.incident p { color: var(--text-2); font-size: 13px; white-space: pre-line; word-break: break-word; }
+.incident > div { flex: 1; min-width: 0; } /* sans min-width, un long chemin élargit la carte au-delà de l'écran */
+.incident b { display: block; overflow-wrap: anywhere; }
+.incident p { color: var(--text-2); font-size: 13px; white-space: pre-line; overflow-wrap: anywhere; }
 .incident small { color: var(--muted); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
 .tabs-wrap { position: relative; margin: 22px 0 18px; }
