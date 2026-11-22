@@ -634,3 +634,12 @@ Une faille dans SuricateWeb touche potentiellement tous les sites qu'il surveill
 ## Licence
 
 SuricateWeb est distribué sous licence **[GNU AGPL v3](LICENSE)** (AGPL-3.0) : usage, étude, modification et redistribution libres, y compris commerciaux, à condition de conserver la licence et l'avis de copyright ([NOTICE](NOTICE)) et de publier, sous la même licence, le code source de toute version modifiée que vous distribuez **ou que vous proposez à des utilisateurs à travers un réseau** (article 13 : une version modifiée exploitée comme service en ligne doit en offrir le code source). La licence comprend aussi une concession de brevets et exclut toute garantie. Le projet n'a aucune dépendance npm : aucun code tiers n'est embarqué.
+
+### Licence et marque
+
+- **Auto-hébergement** : le cœur est libre et gratuit (AGPL-3.0). Vous pouvez l'installer, l'étudier et le modifier. Si vous publiez ou exploitez en ligne une version **modifiée**, vous devez en publier le code source sous la même licence.
+- **Version hébergée** : le service commercial proposé sur [suricateweb.fr](https://suricateweb.fr/) est un produit distinct, construit sur ce cœur, dont le code additionnel (comptes, forfaits, paiement) n'est pas publié.
+- **Licence commerciale** : pour utiliser ou modifier le cœur sans les obligations de l'AGPL, contactez le titulaire du projet.
+- **Marque** : « SuricateWeb » et son logo sont des marques de leur titulaire. La licence AGPL ne les concède pas : une version modifiée ou un service tiers doit porter un autre nom et ne pas laisser croire qu'il est proposé ou approuvé par le projet. Citer le nom pour désigner le logiciel d'origine reste libre.
+- **Contribuer** : voir [CONTRIBUTING.md](CONTRIBUTING.md) (signature DCO et licence accordée au titulaire).
+
