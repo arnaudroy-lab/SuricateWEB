@@ -137,7 +137,7 @@ test('Chrome distant : capture dans un contexte isolé détruit ensuite, navigat
   }
 });
 
-// Cas réel (burotica.fr, WP Rocket) : un site dont le JavaScript ne démarre qu'à la 1re interaction d'un visiteur
+// Cas réel (creaformat.fr, WP Rocket) : un site dont le JavaScript ne démarre qu'à la 1re interaction d'un visiteur
 // laissait un bandeau d'accueil vide sur la capture. Le faux site rapporte, par requêtes « balises », ce que le navigateur a fait.
 test('Chrome réel : scripts retardés jusqu\'à l\'interaction, défilement, bandeau de cookies', { skip: !shots.chromePath() && 'Chrome/Chromium introuvable' }, async () => {
   let hits = [];
