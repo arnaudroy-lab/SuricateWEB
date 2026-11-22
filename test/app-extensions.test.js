@@ -319,6 +319,17 @@ test('home : appelé pour GET et HEAD « / » seulement ; /index.html reste l\'a
   assert.equal(calls, 1, 'POST « / » ne passe pas par home');
 });
 
+test('homePaths : home est aussi appelé pour ces adresses (page d\'accueil par langue), avec `path`', async () => {
+  const seen = [];
+  const home = async ({ res, path }) => { seen.push(path); res.writeHead(200, { 'content-type': 'text/html' }); res.end(`accueil ${path}`); return true; };
+  const { call } = await start({ auth: fakeAuth(), home, homePaths: ['/en', '/en/'] });
+  assert.equal((await call('GET', '/en/')).text, 'accueil /en/');
+  assert.equal((await call('GET', '/en')).text, 'accueil /en');
+  assert.equal((await call('GET', '/')).text, 'accueil /');
+  assert.deepEqual(seen, ['/en/', '/en', '/'], 'dans l\'ordre des requêtes');
+  assert.equal((await call('GET', '/fr/')).status, 404, 'une adresse non déclarée reste inconnue');
+});
+
 test('home : sans l\'option, ou en cas d\'erreur, l\'application est servie', async () => {
   const none = await start({ auth: fakeAuth() });
   assert.match((await none.call('GET', '/')).text, /<div id="app">/);

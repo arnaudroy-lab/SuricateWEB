@@ -217,6 +217,7 @@ Sans ces clés (cœur auto-hébergé), rien n'est affiché.
 `home({ req, res, identity }) → booléen` : appelé pour `GET` et `HEAD` sur « / » (et eux seuls), avant le service du dossier `public/`. `identity` est le résultat de `auth.authenticate(req)`, ou `null` sans session valide. Renvoyer `true` signifie « j'ai répondu » (ex. une page de présentation pour les visiteurs) ; `false`, l'application est servie comme sans cette option.
 
 - Une erreur du gestionnaire **ou** de l'authentification ne bloque jamais l'application : elle est servie (et l'identité transmise est alors `null`).
+- **`homePaths`** (depuis 1.27.0) : liste d'adresses supplémentaires (ex. `['/en', '/en/']`) pour lesquelles `home` est aussi appelé, avec `path` dans ses arguments : une page d'accueil par langue. Le cœur n'a rien à servir à ces adresses : le gestionnaire doit y répondre (ou rediriger), sans quoi c'est un 404.
 - La réponse à « / » dépend de la session : le cœur pose `Vary: Cookie` dès que `home` est défini. Le gestionnaire doit répondre avec `Cache-Control: no-cache` (ou `private`).
 - `/index.html` reste l'application, avec ou sans session : c'est l'adresse à donner à un bouton « Se connecter » de la page d'accueil.
 - Le service worker de l'application met « / » en cache : hors ligne, un visiteur qui a déjà ouvert l'application peut retrouver celle-ci à la place de la page. Sans conséquence (l'application ne fonctionne pas hors ligne).

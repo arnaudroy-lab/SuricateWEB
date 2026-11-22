@@ -30,10 +30,12 @@
 //                       emailAlerts   { url, moreUrl? }  Réglages › « Notifications par e-mail » (adresse du compte) : GET url → { address, enabled, minSeverity, sendRecovery,
 //                                     lastError? }, PUT url { enabled, minSeverity, sendRecovery }, POST url/test ; `moreUrl` : page des adresses supplémentaires
 //                       scopeLinks    [{ label, href, icon }]  boutons par groupe (en-tête) et par site (fiche) ; mènent à `href?scope=group|site&id=N`
-//     home,           async ({ req, res, identity }) → booléen : appelé pour GET et HEAD « / » (et pour eux seuls), avant le service du
+//     home,           async ({ req, res, identity, path }) → booléen : appelé pour GET et HEAD « / » (et `homePaths`, voir plus bas), avant le service du
 //                     dossier public/. `identity` = auth.authenticate(req), ou null sans session valide. Renvoie true s'il a répondu
 //                     (ex. une page de présentation pour les visiteurs) ; false : l'application est servie, comme sans cette option.
 //                     Une erreur du gestionnaire ou de l'authentification ne bloque jamais l'application : elle est servie.
+//     homePaths,      adresses (en plus de « / ») pour lesquelles `home` est aussi appelé, ex. ['/en', '/en/'] pour une page d'accueil par langue ; `path` le dit.
+//                     Pour ces adresses, `home` doit répondre ou rediriger : le cœur n'a pas de fichier à y servir (404 sinon).
 //     root,           racine du cœur (public/, plugins/, package.json) ; défaut : celle de ce dépôt
 //   });
 //   await app.listen(3000, '127.0.0.1');
@@ -96,6 +98,7 @@ export function createApp({
   telegram = null,
   capabilities = {},
   home = null,
+  homePaths = [],
   root = CORE_ROOT,
 } = {}) {
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -159,14 +162,14 @@ export function createApp({
     try {
       const status = req.method === 'GET' && /^\/status\/([A-Za-z0-9_-]{1,80})\/?$/.exec(url.pathname);
       if (status) return await serveStatusPage(req, res, status[1], url.searchParams);
-      if (home && url.pathname === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (home && (url.pathname === '/' || homePaths.includes(url.pathname)) && (req.method === 'GET' || req.method === 'HEAD')) {
         // À cette adresse, la réponse dépend de la session : visiteur → page d'accueil, compte connecté → application. `vary: cookie`
         // empêche un cache intermédiaire (CDN, proxy) de resservir l'une à la place de l'autre.
         res.setHeader('vary', 'cookie');
         // Une erreur (base indisponible, gestionnaire défaillant) ne doit jamais fermer l'application : on la sert.
         const identity = await Promise.resolve().then(() => auth.authenticate(req)).catch(() => null);
         let answered = false;
-        try { answered = !!(await home({ req, res, identity })); } catch (e) { console.error('[home]', e.message); }
+        try { answered = !!(await home({ req, res, identity, path: url.pathname })); } catch (e) { console.error('[home]', e.message); }
         if (answered || res.headersSent) return;
       }
       if (!url.pathname.startsWith('/api/')) return await serveStatic(req, res, url.pathname);
