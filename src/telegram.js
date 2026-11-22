@@ -1,10 +1,11 @@
 import { esc, SEV } from './util.js';
+import { tr } from './i18n.js';
 
 const API = process.env.TELEGRAM_API || 'https://api.telegram.org';
 
 /** `timeoutMs` : 15 s par défaut ; l'interrogation longue (getUpdates) en demande davantage. `signal` permet de l'annuler. */
 async function call(token, method, body, { timeoutMs = 15000, signal } = {}) {
-  if (!token) throw new Error('Jeton du bot Telegram manquant');
+  if (!token) throw new Error(tr('Jeton du bot Telegram manquant'));
   let res;
   try {
     res = await fetch(`${API}/bot${token}/${method}`, {
@@ -14,15 +15,15 @@ async function call(token, method, body, { timeoutMs = 15000, signal } = {}) {
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
-    if (signal?.aborted) throw Object.assign(new Error('Interrogation annulée'), { aborted: true });
-    throw new Error(`Telegram injoignable (${e.cause?.code || e.name})`);
+    if (signal?.aborted) throw Object.assign(new Error(tr('Interrogation annulée')), { aborted: true });
+    throw new Error(tr('Telegram injoignable ({v1})', { v1: e.cause?.code || e.name }));
   }
   const j = await res.json().catch(() => ({}));
   if (!j.ok) {
-    const d = j.description || `HTTP ${res.status}`;
+    const d = j.description || tr('HTTP {status}', { status: res.status });
     const fail = (msg) => Object.assign(new Error(msg), { status: res.status, description: d });
-    if (res.status === 401 || res.status === 404) throw fail('Jeton invalide : vérifiez le jeton donné par @BotFather');
-    if (/chat not found/i.test(d)) throw fail("Conversation introuvable : écrivez d'abord /start à votre bot, puis utilisez « Détecter »");
+    if (res.status === 401 || res.status === 404) throw fail(tr('Jeton invalide : vérifiez le jeton donné par @BotFather'));
+    if (/chat not found/i.test(d)) throw fail(tr('Conversation introuvable : écrivez d\'abord /start à votre bot, puis utilisez « Détecter »'));
     throw fail(d);
   }
   return j.result;
@@ -31,7 +32,7 @@ async function call(token, method, body, { timeoutMs = 15000, signal } = {}) {
 export const getMe = (token) => call(token, 'getMe');
 
 export function sendMessage(token, chatId, html, replyMarkup) {
-  if (!chatId) throw new Error('Identifiant de conversation (chat ID) manquant');
+  if (!chatId) throw new Error(tr('Identifiant de conversation (chat ID) manquant'));
   return call(token, 'sendMessage', {
     chat_id: chatId,
     text: html.length > 4000 ? html.slice(0, 3990) + '…' : html,
@@ -48,7 +49,7 @@ export const editMessageReplyMarkup = (token, chatId, messageId, replyMarkup) =>
 
 /** Envoie une image (JPEG) avec légende. Limite Telegram : 10 Mo, largement suffisante pour nos captures. */
 export async function sendPhoto(token, chatId, image, caption = '') {
-  if (!token) throw new Error('Jeton du bot Telegram manquant');
+  if (!token) throw new Error(tr('Jeton du bot Telegram manquant'));
   const form = new FormData();
   form.set('chat_id', String(chatId));
   if (caption) form.set('caption', caption.slice(0, 1000));
@@ -57,10 +58,10 @@ export async function sendPhoto(token, chatId, image, caption = '') {
   try {
     res = await fetch(`${API}/bot${token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
   } catch (e) {
-    throw new Error(`Telegram injoignable (${e.cause?.code || e.name})`);
+    throw new Error(tr('Telegram injoignable ({v1})', { v1: e.cause?.code || e.name }));
   }
   const j = await res.json().catch(() => ({}));
-  if (!j.ok) throw new Error(j.description || `HTTP ${res.status}`);
+  if (!j.ok) throw new Error(j.description || tr('HTTP {status}', { status: res.status }));
   return j.result;
 }
 
@@ -77,12 +78,13 @@ export async function detectChats(token) {
 }
 
 const ICON = { critical: '🚨', warning: '⚠️', info: 'ℹ️', recovery: '✅' };
-const LABEL = { critical: 'CRITIQUE', warning: 'ATTENTION', info: 'INFO', recovery: 'RÉTABLI' };
+/** Étiquette de sévérité dans la langue du contexte (lue à l'envoi, pas au chargement du module). */
+const label = (severity) => ({ critical: tr('CRITIQUE'), warning: tr('ATTENTION'), info: tr('INFO'), recovery: tr('RÉTABLI') })[severity];
 
 /** Un seul message par contrôle, même s'il contient plusieurs alertes. */
 export function buildMessage(watch, alerts, settings, { link = true } = {}) {
   const top = alerts.reduce((a, b) => ((SEV[b.severity] || 0) > (SEV[a.severity] || 0) ? b : a), alerts[0]);
-  const head = `${ICON[top.severity]} <b>${LABEL[top.severity]}</b> · ${esc(watch.name)}`;
+  const head = `${ICON[top.severity]} <b>${label(top.severity)}</b> · ${esc(watch.name)}`;
   const body = alerts
     .map((a) => {
       let s = `${alerts.length > 1 ? ICON[a.severity] + ' ' : ''}<b>${esc(a.title)}</b>`;
@@ -93,7 +95,7 @@ export function buildMessage(watch, alerts, settings, { link = true } = {}) {
     .join('\n\n');
   let msg = `${head}\n\n${body}\n\n🔗 ${esc(watch.url)}`;
   const base = (settings.baseUrl || '').replace(/\/+$/, '');
-  if (link && /^https?:\/\//.test(base)) msg += `\n<a href="${esc(base)}/#/sites/${watch.id}">Ouvrir dans SuricateWeb</a>`;
+  if (link && /^https?:\/\//.test(base)) msg += `\n<a href="${esc(base)}/#/sites/${watch.id}">${tr('Ouvrir dans SuricateWeb')}</a>`;
   return msg;
 }
 
@@ -124,9 +126,9 @@ export function buildKeyboard(watch, alerts, settings) {
   const row = [];
   // Les messages « rétabli » sont déjà lus : rien à marquer.
   const ids = alerts.filter((a) => a.severity !== 'recovery' && a.id).map((a) => a.id);
-  if (ids.length) row.push({ text: '✓ Marquer comme lu', callback_data: `lu:${watch.id}:${Math.max(...ids)}` });
+  if (ids.length) row.push({ text: tr('✓ Marquer comme lu'), callback_data: `lu:${watch.id}:${Math.max(...ids)}` });
   const url = siteLink(settings.baseUrl, watch.id);
-  if (url) row.push({ text: 'Ouvrir dans SuricateWeb', url });
+  if (url) row.push({ text: tr('Ouvrir dans SuricateWeb'), url });
   return { row, link: !!url };
 }
 

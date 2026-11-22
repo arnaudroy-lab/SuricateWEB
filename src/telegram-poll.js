@@ -4,6 +4,7 @@
 // Telegram n'admet qu'un lecteur à la fois : si le bot a un webhook, ou si le bouton « Détecter » interroge en même
 // temps, la demande la plus récente l'emporte et l'autre reprend un instant plus tard.
 import * as tg from './telegram.js';
+import { tr, runWithLang } from './i18n.js';
 
 /** « lu:<site>:<dernière alerte> » → { watchId, upTo }, ou null si ce n'est pas un de nos boutons. */
 export function parseCallback(data) {
@@ -13,7 +14,7 @@ export function parseCallback(data) {
 
 /** Clavier après lecture : « Marquer comme lu » devient « ✓ Lu » (sans effet), les autres boutons restent. */
 export function readKeyboard(rows) {
-  return (rows || []).map((row) => row.map((b) => (parseCallback(b.callback_data) ? { text: '✓ Lu', callback_data: 'ok' } : b)));
+  return (rows || []).map((row) => row.map((b) => (parseCallback(b.callback_data) ? { text: tr('✓ Lu'), callback_data: 'ok' } : b)));
 }
 
 /**
@@ -39,19 +40,19 @@ export function startTelegramPoller({ settings, onRead, pollSeconds = 25, idleMs
     // Les réglages désignent UNE conversation ; la version hébergée peut en ajouter d'autres (`chatIds` : identifiants ou @canal) pour le même bot.
     const username = cq.message?.chat?.username ? `@${String(cq.message.chat.username).toLowerCase()}` : '';
     const allowed = [t.chatId, ...(Array.isArray(t.chatIds) ? t.chatIds : [])].map((c) => String(c).toLowerCase());
-    if (!chatId || !(allowed.includes(chatId) || (username && allowed.includes(username)))) return reply('Action non autorisée.', true);
-    if (cq.data === 'ok') return reply('Déjà marqué comme lu.');
+    if (!chatId || !(allowed.includes(chatId) || (username && allowed.includes(username)))) return reply(tr('Action non autorisée.'), true);
+    if (cq.data === 'ok') return reply(tr('Déjà marqué comme lu.'));
     const cb = parseCallback(cq.data);
-    if (!cb) return reply('Ce bouton n’est plus valable.');
+    if (!cb) return reply(tr('Ce bouton n’est plus valable.'));
 
     let n;
     try {
       n = await onRead(cb.watchId, cb.upTo);
     } catch (e) {
       log.error(`[telegram] marquage comme lu : ${e.message}`);
-      return reply('Échec : réessayez depuis SuricateWeb.', true);
+      return reply(tr('Échec : réessayez depuis SuricateWeb.'), true);
     }
-    await reply(n > 1 ? `${n} alertes marquées comme lues.` : n === 1 ? 'Alerte marquée comme lue.' : 'Déjà marqué comme lu.');
+    await reply(n > 1 ? tr('{n} alertes marquées comme lues.', { n }) : n === 1 ? tr('Alerte marquée comme lue.') : tr('Déjà marqué comme lu.'));
     const rows = cq.message?.reply_markup?.inline_keyboard;
     if (rows) await tg.editMessageReplyMarkup(t.token, chatId, cq.message.message_id, { inline_keyboard: readKeyboard(rows) }).catch(() => {});
   }
@@ -70,7 +71,7 @@ export function startTelegramPoller({ settings, onRead, pollSeconds = 25, idleMs
         failures = 0;
         for (const u of updates) {
           offset = Math.max(offset, u.update_id + 1); // même en cas d'échec : on ne rejoue pas un clic
-          if (u.callback_query) await handle(u.callback_query, t).catch((e) => log.error(`[telegram] clic : ${e.message}`));
+          if (u.callback_query) await runWithLang(t.language, () => handle(u.callback_query, t)).catch((e) => log.error(`[telegram] clic : ${e.message}`));
         }
       } catch (e) {
         if (stopped || e.aborted) break;

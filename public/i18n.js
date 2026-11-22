@@ -24,6 +24,8 @@ function pick() {
 }
 
 export const lang = pick();
+/** Le visiteur a-t-il déjà choisi une langue sur ce navigateur ? (sinon, celle de son compte peut s'imposer) */
+export const hasChoice = (() => { try { return has(localStorage.getItem(KEY)); } catch { return false; } })();
 export const locale = LOCALES[lang];
 
 let dict = {};
@@ -47,10 +49,17 @@ export const isOne = (n) => rules.select(n) === 'one';
 /** « 1 site » / « 3 sites » : `one` et `other` sont déjà traduits (plural(n, tr('site'), tr('sites'))) ; la règle de pluriel est celle de la langue. */
 export const plural = (n, one, other) => `${n} ${rules.select(n) === 'one' ? one : other}`;
 
-/** Change la langue (retenue dans ce navigateur) et recharge. */
-export function setLang(code) {
+/**
+ * Change la langue (retenue dans ce navigateur) et recharge. Avec `remember`, elle est aussi enregistrée dans les réglages du compte :
+ * c'est la langue des alertes, des messages Telegram, des rapports et des e-mails (un invité sans droit d'écriture n'en change pas).
+ */
+export async function setLang(code, { remember = true } = {}) {
   if (!has(code)) return;
   try { localStorage.setItem(KEY, code); } catch { /* sans stockage, ?lang= reste possible */ }
+  if (remember && globalThis.fetch) {
+    const save = fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: code }) }).catch(() => {});
+    await Promise.race([save, new Promise((r) => setTimeout(r, 1500))]);
+  }
   // Une adresse identique à une ancre près ne recharge pas : on recharge explicitement (et on retire ?lang= s'il y est).
   const url = new URL(location.href);
   if (url.searchParams.has('lang')) { url.searchParams.delete('lang'); location.replace(url); } else location.reload();

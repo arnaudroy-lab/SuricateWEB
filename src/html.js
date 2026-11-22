@@ -1,6 +1,7 @@
 // Parseur HTML tolérant + sélecteurs CSS (sous-ensemble) + extraction de signaux de sécurité.
 // Volontairement sans dépendance.
 import { registrable } from './util.js';
+import { tr } from './i18n.js';
 
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 const RAW = new Set(['script', 'style', 'textarea', 'title']);
@@ -145,7 +146,7 @@ const rawText = (el) => (el.children || []).map((c) => c.text ?? rawText(c)).joi
 
 function parseCompound(s) {
   const m = /^([a-zA-Z0-9*_-]+)?((?:[#.][\w-]+|\[[^\]]+\])*)$/.exec(s);
-  if (!m) throw new Error(`Sélecteur CSS non pris en charge : « ${s} »`);
+  if (!m) throw new Error(tr('Sélecteur CSS non pris en charge : « {s} »', { s }));
   const c = { tag: m[1] && m[1] !== '*' ? m[1].toLowerCase() : null, id: null, classes: [], attrs: [] };
   const re = /#([\w-]+)|\.([\w-]+)|\[([^\]=~^$*|]+)(?:([~^$*|]?=)["']?([^\]"']*)["']?)?\]/g;
   let t;
@@ -171,7 +172,7 @@ function parseSelector(sel) {
         chain.push({ comb: first ? null : m[1] ? '>' : ' ', c: parseCompound(m[2]) });
         first = false;
       }
-      if (!chain.length) throw new Error('Sélecteur CSS vide');
+      if (!chain.length) throw new Error(tr('Sélecteur CSS vide'));
       return chain;
     });
 }

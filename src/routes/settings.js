@@ -9,6 +9,7 @@ import { settingsFor, saveAccountSettings, saveInstanceSettings, accountDefaults
 import { pruneAllShots } from '../screenshot.js';
 import * as tg from '../telegram.js';
 import { clamp } from '../util.js';
+import { isLang, tr } from '../i18n.js';
 import { publicSettings } from './shared.js';
 
 export default function register({ route }) {
@@ -38,6 +39,7 @@ export default function register({ route }) {
     if (b.defaultInterval !== undefined) patch.defaultInterval = clamp(b.defaultInterval, minEvery, 10080, Math.max(15, minEvery));
     const keepAll = b.retention?.screenshots !== undefined ? Math.round(clamp(b.retention.screenshots, 1, MAX_KEEP, accountDefaults().retention.screenshots)) : null;
     if (keepAll !== null) patch.retention = { screenshots: keepAll };
+    if (isLang(b.language)) patch.language = b.language;
     if (b.cmsAfterDays !== undefined) patch.cmsAfterDays = Math.round(clamp(b.cmsAfterDays, 1, 90, 7));
     if (b.userAgent !== undefined) patch.userAgent = String(b.userAgent).trim() || cur.userAgent;
     if (Array.isArray(b.builtinKeywords)) patch.builtinKeywords = b.builtinKeywords.map((s) => String(s).trim()).filter(Boolean).slice(0, 300);
@@ -63,7 +65,7 @@ export default function register({ route }) {
     const chatId = String(ctx.body.chatId || '').trim() || (await settingsFor(ctx.account.id)).telegram.chatId;
     try {
       const me = await tg.getMe(token);
-      await tg.sendMessage(token, chatId, `✅ <b>SuricateWeb est connecté</b>\nLes alertes de surveillance arriveront ici.\n<i>Bot : @${me.username}</i>`);
+      await tg.sendMessage(token, chatId, tr('✅ <b>SuricateWeb est connecté</b>\nLes alertes de surveillance arriveront ici.\n<i>Bot : @{bot}</i>', { bot: me.username }));
       return { ok: true, bot: me.username };
     } catch (e) {
       throw new HttpError(400, e.message);

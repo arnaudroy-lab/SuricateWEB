@@ -96,6 +96,8 @@ export const accountDefaults = () => ({
   retention: { screenshots: defaultShotKeep() },
   // Une mise à jour du CMS en attente depuis plus de N jours déclenche une alerte.
   cmsAfterDays: 7,
+  // Langue des textes produits pour ce compte : alertes, messages Telegram, rapports, e-mails (voir src/i18n.js).
+  language: 'fr',
 });
 
 /** Réglages complets (installation + compte) : la rétention des deux niveaux est regroupée sous « retention ». */

@@ -2,7 +2,7 @@
 
 import { buildModel, moveSite, moveGroup, stepSite, stepGroup, sameModel, toPayload, applyModel, describeMove } from './layout.js';
 import { qrPath } from './qr.js';
-import { tr, plural, isOne, lang, locale, LANGS, setLang } from './i18n.js';
+import { tr, plural, isOne, lang, locale, LANGS, setLang, hasChoice } from './i18n.js';
 
 // ───────────── Utilitaires DOM ─────────────
 const $ = (s, el = document) => el.querySelector(s);
@@ -2315,6 +2315,8 @@ async function boot() {
   }
   if (S.auth.required && !S.auth.authenticated) return viewLogin();
   if (!S.settings) S.settings = await api('/settings').catch(() => null);
+  // Navigateur sans choix de langue : celle du compte s'impose (une seule fois : le choix est ensuite retenu).
+  if (!hasChoice && S.settings?.language && S.settings.language !== lang) { setLang(S.settings.language, { remember: false }); return; }
   S.caps = await fetch('/api/capabilities').then((r) => r.json()).catch(() => ({}));
   mountShell();
   if (!eventsOn) { eventsOn = true; connectEvents(); }

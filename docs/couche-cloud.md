@@ -357,6 +357,16 @@ Chaque besoin dit où il s'accroche. Le plan détaillé, les forfaits et les dé
 - Les migrations du cœur ne sont jamais modifiées une fois publiées : on en ajoute une. Les vôtres, numérotées à partir de 1000, suivent la même règle.
 - Embarquer le cœur par sous-module Git épinglé sur une version ; lire les commits entre deux versions avant de mettre à jour.
 
+## Langues (depuis 1.26.0)
+
+Le cœur produit ses textes en français (langue par défaut) ou en anglais, selon le réglage `language` du **compte** (`settingsFor(accountId).language`, `'fr'` par défaut ; `PUT /api/settings { language }` l'enregistre).
+
+- **Module `src/i18n.js`** : `tr('Texte français', { param })`, `plural(n, un, plusieurs)`, `runWithLang(langue, () => …)`, `currentLang()`, `addTranslations(langue, { 'texte français': 'traduction' })`. Le français est la clé : sans traduction, il s'affiche.
+- **La langue suit le contexte asynchrone** (pas de paramètre à passer). Le cœur l'a posée autour d'un contrôle de site, d'une requête de l'API (langue du compte connecté), d'une page de rapport ou de statut et d'un clic Telegram. **Une couche hébergée qui produit un texte pour un compte hors de ces points (e-mail, tâche planifiée, webhook) doit faire de même** : `runWithLang((await settingsFor(id)).language, () => …)`.
+- **Ses propres textes** : la couche hébergée garde ses dictionnaires et les ajoute au démarrage avec `addTranslations('en', {...})` ; les clés déjà connues du cœur ne sont pas écrasées.
+- **Interface** : `public/i18n.js` (côté navigateur, dictionnaire `public/locales/<langue>.json`). Les libellés envoyés par la couche (`accountLinks`, `scopeLinks`…) sont affichés tels quels : à envoyer déjà traduits (langue du compte, `ctx.account` → réglages).
+- **Ne rien comparer à un texte traduit** (comparer des codes) et **pas de `tr()` dans une constante de module** (évaluée au chargement, donc en français) : en faire une fonction.
+
 ## Annexe A — Routes et permissions (version 1.8.0)
 
 | Permission | Routes |

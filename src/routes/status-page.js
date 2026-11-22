@@ -2,7 +2,8 @@
 //
 // Adresse /status/<jeton> : le jeton aléatoire du site est le seul accès. Elle ne montre que la disponibilité, les pannes et
 // les maintenances — jamais une alerte de sécurité, un détail technique ni un réglage.
-import { getWatchByStatusToken } from '../db.js';
+import { getWatchByStatusToken, settingsFor } from '../db.js';
+import { isLang, runWithLang } from '../i18n.js';
 import { statusData, renderStatusPage, serverTz } from '../report.js';
 import { REPORT_CSP, sendHtml } from '../http.js';
 import { clamp } from '../util.js';
@@ -27,6 +28,8 @@ export function createStatusPageHandler({ clientIp }) {
       return res.end(NOT_FOUND_PAGE);
     }
     const tz = Math.round(clamp(query.get('tz'), -840, 840, serverTz()));
-    sendHtml(res, renderStatusPage({ title: w.config.statusPage.title || w.name, host: new URL(w.url).hostname.replace(/^www\./, ''), data: await statusData(w, tz), tz }));
+    // Page publique : la langue du compte du site, ou celle de l'adresse (?lang=en) pour un client qui lit une autre langue.
+    const language = isLang(query.get('lang')) ? query.get('lang') : (await settingsFor(w.accountId)).language;
+    await runWithLang(language, async () => sendHtml(res, renderStatusPage({ title: w.config.statusPage.title || w.name, host: new URL(w.url).hostname.replace(/^www\./, ''), data: await statusData(w, tz), tz })));
   };
 }

@@ -23,6 +23,7 @@ import { getExtensions } from './extensions.js';
 import { captureWatch, engine } from './screenshot.js';
 import { bus } from './events.js';
 import { sha1, registrable, isIp, SEV, fmtDuration } from './util.js';
+import { tr, plural, runWithLang, currentLocale } from './i18n.js';
 
 const MAX_BODY = 5 * 1024 * 1024;
 const RDAP_EVERY = 3600e3; // un détournement de domaine doit être vu vite : toutes les heures
@@ -33,28 +34,28 @@ const DAY = 86400e3;
 export function describeError(e) {
   const code = e?.cause?.code || e?.code || e?.name;
   const map = {
-    ENOTFOUND: ['Nom de domaine introuvable (DNS)'],
-    EAI_AGAIN: ['Résolution DNS indisponible'],
-    ECONNREFUSED: ['Connexion refusée par le serveur'],
-    ECONNRESET: ['Connexion interrompue par le serveur'],
-    EHOSTUNREACH: ['Serveur injoignable'],
-    ENETUNREACH: ['Réseau injoignable'],
-    ETIMEDOUT: ['Délai de connexion dépassé'],
-    UND_ERR_CONNECT_TIMEOUT: ['Délai de connexion dépassé'],
-    UND_ERR_HEADERS_TIMEOUT: ['Le serveur ne répond pas (en-têtes)'],
-    TimeoutError: ['Délai dépassé'],
-    AbortError: ['Délai dépassé'],
-    CERT_HAS_EXPIRED: ['Certificat TLS expiré', true],
-    DEPTH_ZERO_SELF_SIGNED_CERT: ['Certificat TLS auto-signé', true],
-    SELF_SIGNED_CERT_IN_CHAIN: ['Certificat TLS auto-signé dans la chaîne', true],
-    UNABLE_TO_VERIFY_LEAF_SIGNATURE: ['Certificat TLS non vérifiable (chaîne incomplète)', true],
-    UNABLE_TO_GET_ISSUER_CERT_LOCALLY: ['Certificat TLS : émetteur inconnu', true],
-    ERR_TLS_CERT_ALTNAME_INVALID: ['Le certificat TLS ne correspond pas au domaine', true],
-    ERR_SSL_WRONG_VERSION_NUMBER: ['Erreur de protocole TLS'],
-    UND_ERR_SOCKET: ['Connexion coupée par le serveur sans réponse'],
-    REDIRECT_LOOP: ['Boucle ou excès de redirections'],
-    ESSRF: ['Adresse non autorisée : réseau privé ou interne'], // garde réseau (src/net-guard.js)
-    BODY_TOO_LARGE: ['Page trop volumineuse'],
+    ENOTFOUND: [tr('Nom de domaine introuvable (DNS)')],
+    EAI_AGAIN: [tr('Résolution DNS indisponible')],
+    ECONNREFUSED: [tr('Connexion refusée par le serveur')],
+    ECONNRESET: [tr('Connexion interrompue par le serveur')],
+    EHOSTUNREACH: [tr('Serveur injoignable')],
+    ENETUNREACH: [tr('Réseau injoignable')],
+    ETIMEDOUT: [tr('Délai de connexion dépassé')],
+    UND_ERR_CONNECT_TIMEOUT: [tr('Délai de connexion dépassé')],
+    UND_ERR_HEADERS_TIMEOUT: [tr('Le serveur ne répond pas (en-têtes)')],
+    TimeoutError: [tr('Délai dépassé')],
+    AbortError: [tr('Délai dépassé')],
+    CERT_HAS_EXPIRED: [tr('Certificat TLS expiré'), true],
+    DEPTH_ZERO_SELF_SIGNED_CERT: [tr('Certificat TLS auto-signé'), true],
+    SELF_SIGNED_CERT_IN_CHAIN: [tr('Certificat TLS auto-signé dans la chaîne'), true],
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE: [tr('Certificat TLS non vérifiable (chaîne incomplète)'), true],
+    UNABLE_TO_GET_ISSUER_CERT_LOCALLY: [tr('Certificat TLS : émetteur inconnu'), true],
+    ERR_TLS_CERT_ALTNAME_INVALID: [tr('Le certificat TLS ne correspond pas au domaine'), true],
+    ERR_SSL_WRONG_VERSION_NUMBER: [tr('Erreur de protocole TLS')],
+    UND_ERR_SOCKET: [tr('Connexion coupée par le serveur sans réponse')],
+    REDIRECT_LOOP: [tr('Boucle ou excès de redirections')],
+    ESSRF: [tr('Adresse non autorisée : réseau privé ou interne')], // garde réseau (src/net-guard.js)
+    BODY_TOO_LARGE: [tr('Page trop volumineuse')],
   };
   const m = map[code];
   // « fetch failed » ne dit rien : la vraie cause est dans error.cause.
@@ -285,7 +286,7 @@ export function tlsInfo(host, port = 443, timeout = 8000) {
     });
     sock.setTimeout(timeout, () => {
       sock.destroy();
-      reject(new Error('Délai TLS dépassé'));
+      reject(new Error(tr('Délai TLS dépassé')));
     });
     sock.on('error', reject);
   });
@@ -297,7 +298,7 @@ async function rdapFetch(domain) {
     signal: AbortSignal.timeout(12000),
   });
   if (res.status === 404) return { unsupported: true };
-  if (!res.ok) throw new Error(`RDAP HTTP ${res.status}`);
+  if (!res.ok) throw new Error(tr('RDAP HTTP {status}', { status: res.status }));
   const j = await res.json();
   const registrar = j.entities?.find((e) => e.roles?.includes('registrar'))?.vcardArray?.[1]?.find((x) => x[0] === 'fn')?.[3] || '';
   const ev = (a) => Date.parse(j.events?.find((e) => e.eventAction === a)?.eventDate) || 0;
@@ -343,7 +344,7 @@ const catOf = (key) => {
 };
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const dateFr = (t) => new Date(t).toLocaleDateString('fr-FR');
+const dateFr = (t) => new Date(t).toLocaleDateString(currentLocale());
 
 /** Erreur « site en panne » : toute erreur HTTP sauf les accès restreints (401/403/429 = serveur joignable). */
 const isDownCode = (code) => code >= 400 && ![401, 403, 429].includes(code);
@@ -351,7 +352,15 @@ const isDownCode = (code) => code >= 400 && ![401, 403, 429].includes(code);
 /** Statuts RDAP signalant un transfert en cours, une suspension ou une expiration du domaine. */
 const RISKY_STATUS = /pending transfer|hold|redemption|pending delete|pending restore/;
 
+/** Contrôle un site ; les textes produits (alertes, messages) sont dans la langue du compte propriétaire. */
 export async function runCheck(id) {
+  const owner = await getWatch(id);
+  if (!owner) return null;
+  const { language } = await settingsFor(owner.accountId);
+  return runWithLang(language, () => runCheckNow(id));
+}
+
+async function runCheckNow(id) {
   const w = await getWatch(id);
   if (!w) return null;
   const settings = await settingsFor(w.accountId); // installation + réglages du compte du site
@@ -411,7 +420,7 @@ export async function runCheck(id) {
       size = page.size;
       if (c.status && isDownCode(code)) {
         down = true;
-        error = `Erreur HTTP ${code}`;
+        error = tr('Erreur HTTP {code}', { code });
       }
     }
     if (down && !maint) {
@@ -432,13 +441,13 @@ export async function runCheck(id) {
     if (pageErr) {
       if (confirmed) {
         evaluated.add('net');
-        inc('down', 'critical', pageErr.tls ? 'Problème de certificat TLS' : 'Site inaccessible', pageErr.message);
+        inc('down', 'critical', pageErr.tls ? tr('Problème de certificat TLS') : tr('Site inaccessible'), pageErr.message);
       }
     } else {
       evaluated.add('content');
       if (!down || confirmed) evaluated.add('net');
-      if (confirmed) inc('http', 'critical', `Erreur HTTP ${code}`, `${w.url} répond ${code}.`);
-      else if (!down && c.status && code >= 400) inc('http', 'warning', `Erreur HTTP ${code}`, `${w.url} répond ${code} (accès restreint ou protégé).`);
+      if (confirmed) inc('http', 'critical', tr('Erreur HTTP {code}', { code }), tr('{url} répond {code}.', { url: w.url, code }));
+      else if (!down && c.status && code >= 400) inc('http', 'warning', tr('Erreur HTTP {code}', { code }), tr('{url} répond {code} (accès restreint ou protégé).', { url: w.url, code }));
     }
   }
 
@@ -447,21 +456,21 @@ export async function runCheck(id) {
     const p = page;
     const finalU = new URL(p.finalUrl);
     if (c.redirect) {
-      if (url.protocol === 'https:' && finalU.protocol === 'http:') inc('downgrade', 'warning', 'Le site est retombé en HTTP (non chiffré)', p.finalUrl);
+      if (url.protocol === 'https:' && finalU.protocol === 'http:') inc('downgrade', 'warning', tr('Le site est retombé en HTTP (non chiffré)'), p.finalUrl);
       if (baseline && state.finalUrl) {
         const was = new URL(state.finalUrl);
         const allowed = cfg.allowedHosts.some((h) => h === finalU.hostname || h === registrable(finalU.hostname));
         if (registrable(finalU.hostname) !== registrable(was.hostname) && !allowed) {
-          add('redirect_domain', 'critical', 'Le site redirige vers un autre domaine', `${state.finalUrl} → ${p.finalUrl}`);
+          add('redirect_domain', 'critical', tr('Le site redirige vers un autre domaine'), `${state.finalUrl} → ${p.finalUrl}`);
         } else if (finalU.origin + finalU.pathname !== was.origin + was.pathname) {
-          add('redirect_changed', 'warning', 'La destination finale de la redirection a changé', `${state.finalUrl} → ${p.finalUrl}`);
+          add('redirect_changed', 'warning', tr('La destination finale de la redirection a changé'), `${state.finalUrl} → ${p.finalUrl}`);
         }
       }
     }
     state.finalUrl = p.finalUrl;
 
     if (c.server && baseline && (state.server ?? p.server) !== p.server) {
-      add('server_changed', 'info', 'Le logiciel serveur a changé', `« ${state.server || '—'} » → « ${p.server || '—'} »`);
+      add('server_changed', 'info', tr('Le logiciel serveur a changé'), `« ${state.server || '—'} » → « ${p.server || '—'} »`);
     }
     state.server = p.server;
 
@@ -470,7 +479,7 @@ export async function runCheck(id) {
     const f = a.features;
     const fullText = a.fullLines.join('\n').toLowerCase();
 
-    if (a.selectorMissing) inc('selector', 'warning', 'Le sélecteur CSS ne trouve plus aucun élément', `« ${cfg.selector} » — la structure de la page a peut-être changé.`);
+    if (a.selectorMissing) inc('selector', 'warning', tr('Le sélecteur CSS ne trouve plus aucun élément'), tr('« {selector} » — la structure de la page a peut-être changé.', { selector: cfg.selector }));
 
     // Mots-clés de piratage / spam (états)
     if (c.keywords && fullText) {
@@ -479,40 +488,40 @@ export async function runCheck(id) {
       if (hits.length) {
         const quote = (arr) => arr.map((k) => `« ${k} »`).join(', ');
         inc('forbidden', 'critical',
-          hits.length === 1 ? `Texte suspect détecté : « ${hits[0]} »` : `${hits.length} textes suspects détectés : ${quote(hits.slice(0, 4))}${hits.length > 4 ? '…' : ''}`,
+          hits.length === 1 ? tr('Texte suspect détecté : « {v1} »', { v1: hits[0] }) : tr('{length} textes suspects détectés : {quote}{v1}', { length: hits.length, quote: quote(hits.slice(0, 4)), v1: hits.length > 4 ? '…' : '' }),
           context(fullText, hits[0]));
         // Incident déjà actif : on ne ré-alerte que pour un mot nouvellement apparu.
         const fresh = hits.filter((k) => !(state.forbiddenHits || []).includes(k));
-        if (state.incidents?.forbidden && fresh.length) add('forbidden', 'critical', `Nouveau texte suspect : ${quote(fresh)}`, context(fullText, fresh[0]));
+        if (state.incidents?.forbidden && fresh.length) add('forbidden', 'critical', tr('Nouveau texte suspect : {quote}', { quote: quote(fresh) }), context(fullText, fresh[0]));
       }
       state.forbiddenHits = hits;
     }
     for (const r of cfg.required) {
-      if (fullText && !fullText.includes(r.toLowerCase())) inc(`required:${r}`, 'critical', `Texte attendu absent : « ${r} »`, "Le contenu normal de la page n'est plus présent.");
+      if (fullText && !fullText.includes(r.toLowerCase())) inc(`required:${r}`, 'critical', tr('Texte attendu absent : « {r} »', { r }), tr('Le contenu normal de la page n\'est plus présent.'));
     }
 
     // Signaux techniques (évènements)
     if (f) {
       if (f.suspects.length) {
         const fresh = f.suspects.filter((s) => !(state.suspects || []).includes(s));
-        if (fresh.length && baseline) add('script_suspect', 'critical', 'Script JavaScript suspect (obfusqué / redirection)', fresh[0]);
+        if (fresh.length && baseline) add('script_suspect', 'critical', tr('Script JavaScript suspect (obfusqué / redirection)'), fresh[0]);
       }
-      if (c.title && baseline && state.title !== undefined && state.title !== f.title) add('title_changed', 'warning', 'Le titre de la page a changé', `« ${state.title} » → « ${f.title} »`);
+      if (c.title && baseline && state.title !== undefined && state.title !== f.title) add('title_changed', 'warning', tr('Le titre de la page a changé'), `« ${state.title} » → « ${f.title} »`);
       if (c.scripts && baseline && state.scripts) {
         const fresh = f.scripts.filter((s) => !state.scripts.includes(s));
         if (fresh.length) {
           const ext = fresh.filter((s) => registrable(new URL(s).hostname) !== domain);
-          add('script_added', ext.length ? 'critical' : 'warning', ext.length ? 'Nouveau script externe chargé par la page' : 'Nouveau script ajouté à la page', fresh.slice(0, 5).join('\n'));
+          add('script_added', ext.length ? 'critical' : 'warning', ext.length ? tr('Nouveau script externe chargé par la page') : tr('Nouveau script ajouté à la page'), fresh.slice(0, 5).join('\n'));
         }
       }
       if (c.links && baseline && state.linkHosts) {
         const nf = f.iframeHosts.filter((h) => !(state.iframeHosts || []).includes(h));
         const nfo = f.formHosts.filter((h) => !(state.formHosts || []).includes(h));
         const nl = f.linkHosts.filter((h) => !state.linkHosts.includes(h));
-        if (nf.length) add('iframe_added', 'critical', 'Iframe externe injectée dans la page', nf.join(', '));
-        if (nfo.length) add('form_hijacked', 'critical', 'Un formulaire envoie désormais ses données vers un domaine externe', nfo.join(', '));
-        if (nl.length) add('links_added', nl.length >= 3 ? 'warning' : 'info', `${nl.length} nouveau(x) domaine(s) externe(s) lié(s)`, nl.slice(0, 8).join(', '));
-        if (f.metaRefresh && f.metaRefresh !== state.metaRefresh) add('meta_refresh', 'critical', 'Redirection <meta refresh> détectée', f.metaRefresh);
+        if (nf.length) add('iframe_added', 'critical', tr('Iframe externe injectée dans la page'), nf.join(', '));
+        if (nfo.length) add('form_hijacked', 'critical', tr('Un formulaire envoie désormais ses données vers un domaine externe'), nfo.join(', '));
+        if (nl.length) add('links_added', nl.length >= 3 ? 'warning' : 'info', tr('{length} nouveau(x) domaine(s) externe(s) lié(s)', { length: nl.length }), nl.slice(0, 8).join(', '));
+        if (f.metaRefresh && f.metaRefresh !== state.metaRefresh) add('meta_refresh', 'critical', tr('Redirection <meta refresh> détectée'), f.metaRefresh);
       }
       Object.assign(state, { title: f.title, scripts: f.scripts, linkHosts: f.linkHosts, iframeHosts: f.iframeHosts, formHosts: f.formHosts, metaRefresh: f.metaRefresh, suspects: f.suspects });
     }
@@ -530,12 +539,12 @@ export async function runCheck(id) {
         });
         if (d && c.content && baseline && !a.binary && pct >= cfg.minChangePct) {
           const replaced = prevLines.length >= 5 && d.similarity < 0.25;
-          add('content_changed', replaced ? 'critical' : 'warning', replaced ? 'Le contenu de la page a été entièrement remplacé' : 'Le contenu de la page a changé',
-            `${d.added} ligne(s) ajoutée(s), ${d.removed} supprimée(s) · similarité ${Math.round(d.similarity * 100)} %`,
+          add('content_changed', replaced ? 'critical' : 'warning', replaced ? tr('Le contenu de la page a été entièrement remplacé') : tr('Le contenu de la page a changé'),
+            tr('{added} ligne(s) ajoutée(s), {removed} supprimée(s) · similarité {v1} %', { added: d.added, removed: d.removed, v1: Math.round(d.similarity * 100) }),
             { snapshotId, prevSnapshotId: prev.id, diffPreview: preview(d.ops) });
           const was = prevLines.join('\n').length;
           const now2 = a.lines.join('\n').length;
-          if (c.sizeDrop && was > 800 && now2 < was * 0.2) add('size_collapse', 'critical', 'La page est presque vide', `${was} → ${now2} caractères de texte`);
+          if (c.sizeDrop && was > 800 && now2 < was * 0.2) add('size_collapse', 'critical', tr('La page est presque vide'), tr('{was} → {now2} caractères de texte', { was, now2 }));
         }
       } else snapshotId = prev.id;
     }
@@ -559,17 +568,17 @@ export async function runCheck(id) {
       const name = pageName(href, p);
       const ps = { ...(prevPages[href] || {}) };
       const pbaseline = !!ps.baseline;
-      const tag = (title) => `${title} — page « ${name} »`;
+      const tag = (title) => tr('{title} — page « {name} »', { title, name });
       const padd = (type, sev, title, detail = '') => add(`page_${type}`, sev, tag(title), `${href}${detail ? `\n${detail}` : ''}`);
       let problem = null;
       if (r.status === 'rejected') problem = describeError(r.reason).message;
-      else if (isDownCode(r.value.status)) problem = `Erreur HTTP ${r.value.status}`;
+      else if (isDownCode(r.value.status)) problem = tr('Erreur HTTP {status}', { status: r.value.status });
       if (problem) {
         // Comme pour le site : plusieurs échecs de suite avant d'alerter ; une panne passagère ne déclenche rien, et rien n'est « rétabli » en attendant.
         ps.fails = maint ? 0 : (ps.fails || 0) + 1;
         ps.error = problem;
         const confirmed = ps.fails >= cfg.failThreshold;
-        if (confirmed) inc(`page_down:${href}`, 'warning', tag('Page inaccessible'), `${href}\n${problem}`);
+        if (confirmed) inc(`page_down:${href}`, 'warning', tag(tr('Page inaccessible')), `${href}\n${problem}`);
         // La page ne répond pas : ce qu'on savait d'elle (texte suspect) reste vrai tant qu'on ne peut pas le revérifier.
         for (const [k, i] of Object.entries(state.incidents || {})) {
           if (!k.endsWith(`:${href}`) || (confirmed && k.startsWith('page_down:'))) continue;
@@ -592,27 +601,27 @@ export async function runCheck(id) {
         const text = a.fullLines.join('\n').toLowerCase();
         const hits = words.filter((k) => wordIndex(text, k) >= 0).slice(0, 12);
         if (hits.length) {
-          inc(`page_forbidden:${href}`, 'critical', tag(hits.length === 1 ? `Texte suspect détecté : « ${hits[0]} »` : `${hits.length} textes suspects détectés`), `${href}\n${context(text, hits[0])}`, hits.length);
+          inc(`page_forbidden:${href}`, 'critical', tag(hits.length === 1 ? tr('Texte suspect détecté : « {v1} »', { v1: hits[0] }) : tr('{length} textes suspects détectés', { length: hits.length })), `${href}\n${context(text, hits[0])}`, hits.length);
         }
       }
       if (f) {
         if (pbaseline) {
           const fresh = f.suspects.filter((s) => !(ps.suspects || []).includes(s));
-          if (fresh.length) padd('script_suspect', 'critical', 'Script JavaScript suspect (obfusqué / redirection)', fresh[0]);
-          if (c.title && ps.title !== undefined && ps.title !== f.title) padd('title_changed', 'warning', 'Le titre de la page a changé', `« ${ps.title} » → « ${f.title} »`);
+          if (fresh.length) padd('script_suspect', 'critical', tr('Script JavaScript suspect (obfusqué / redirection)'), fresh[0]);
+          if (c.title && ps.title !== undefined && ps.title !== f.title) padd('title_changed', 'warning', tr('Le titre de la page a changé'), `« ${ps.title} » → « ${f.title} »`);
           if (c.scripts && ps.scripts) {
             const added = f.scripts.filter((s) => !ps.scripts.includes(s));
             if (added.length) {
               const ext = added.filter((s) => registrable(new URL(s).hostname) !== domain);
-              padd('script_added', ext.length ? 'critical' : 'warning', ext.length ? 'Nouveau script externe chargé par la page' : 'Nouveau script ajouté à la page', added.slice(0, 5).join('\n'));
+              padd('script_added', ext.length ? 'critical' : 'warning', ext.length ? tr('Nouveau script externe chargé par la page') : tr('Nouveau script ajouté à la page'), added.slice(0, 5).join('\n'));
             }
           }
           if (c.links && ps.linkHosts) {
             const nf = f.iframeHosts.filter((h) => !(ps.iframeHosts || []).includes(h));
             const nfo = f.formHosts.filter((h) => !(ps.formHosts || []).includes(h));
-            if (nf.length) padd('iframe_added', 'critical', 'Iframe externe injectée dans la page', nf.join(', '));
-            if (nfo.length) padd('form_hijacked', 'critical', 'Un formulaire envoie désormais ses données vers un domaine externe', nfo.join(', '));
-            if (f.metaRefresh && f.metaRefresh !== ps.metaRefresh) padd('meta_refresh', 'critical', 'Redirection <meta refresh> détectée', f.metaRefresh);
+            if (nf.length) padd('iframe_added', 'critical', tr('Iframe externe injectée dans la page'), nf.join(', '));
+            if (nfo.length) padd('form_hijacked', 'critical', tr('Un formulaire envoie désormais ses données vers un domaine externe'), nfo.join(', '));
+            if (f.metaRefresh && f.metaRefresh !== ps.metaRefresh) padd('meta_refresh', 'critical', tr('Redirection <meta refresh> détectée'), f.metaRefresh);
           }
         }
         Object.assign(ps, { baseline: true, title: f.title, scripts: f.scripts, linkHosts: f.linkHosts, iframeHosts: f.iframeHosts, formHosts: f.formHosts, metaRefresh: f.metaRefresh, suspects: f.suspects });
@@ -634,23 +643,23 @@ export async function runCheck(id) {
         if (ns.length) sets.set(JSON.stringify(ns), [...(sets.get(JSON.stringify(ns)) || []), name]);
       }
       if (sets.size > 1) {
-        inc('dns_inconsistent', 'warning', 'Les résolveurs DNS ne renvoient pas les mêmes serveurs de noms',
-          [...sets].map(([k, names]) => `${names.join(', ')} : ${JSON.parse(k).join(', ')}`).join('\n') + '\n\nPropagation en cours après un changement légitime, ou détournement de la zone.');
+        inc('dns_inconsistent', 'warning', tr('Les résolveurs DNS ne renvoient pas les mêmes serveurs de noms'),
+          [...sets].map(([k, names]) => `${names.join(', ')} : ${JSON.parse(k).join(', ')}`).join('\n') + tr('\n\nPropagation en cours après un changement légitime, ou détournement de la zone.'));
       }
 
       const o = state.dns;
       if (baseline && o) {
-        if (d.ns.length && o.ns?.length && !same(d.ns, o.ns)) add('dns_ns', 'critical', 'Les serveurs de noms (NS) du domaine ont changé', `${o.ns.join(', ')}\n→ ${d.ns.join(', ')}\n\nPossible transfert ou détournement de domaine.`);
+        if (d.ns.length && o.ns?.length && !same(d.ns, o.ns)) add('dns_ns', 'critical', tr('Les serveurs de noms (NS) du domaine ont changé'), tr('{v1}\n→ {v2}\n\nPossible transfert ou détournement de domaine.', { v1: o.ns.join(', '), v2: d.ns.join(', ') }));
         const ips = [...d.a, ...d.aaaa];
         const seen = new Set(state.seenPrefixes || []);
         if (ips.length && seen.size && ips.every((ip) => !seen.has(ipPrefix(ip)))) {
-          add('dns_ip', 'warning', "L'adresse IP du site a changé (nouvel hébergeur ?)", `${[...(o.a || []), ...(o.aaaa || [])].join(', ') || '—'}\n→ ${ips.join(', ')}`);
+          add('dns_ip', 'warning', tr('L\'adresse IP du site a changé (nouvel hébergeur ?)'), `${[...(o.a || []), ...(o.aaaa || [])].join(', ') || '—'}\n→ ${ips.join(', ')}`);
         }
-        if (d.cname.length && o.cname?.length && !same(d.cname, o.cname)) add('dns_cname', 'warning', 'Le CNAME du site a changé', `${o.cname.join(', ')} → ${d.cname.join(', ')}`);
-        if (d.mx.length && o.mx?.length && !same(d.mx, o.mx)) add('dns_mx', 'warning', 'Les serveurs de messagerie (MX) ont changé', `${o.mx.join(', ')}\n→ ${d.mx.join(', ')}\n\nUn détournement de domaine sert souvent à intercepter les e-mails.`);
-        if (d.spf && o.spf && d.spf !== o.spf) add('dns_spf', 'warning', "L'enregistrement SPF a changé", `${o.spf}\n→ ${d.spf}`);
-        if (d.dmarc && o.dmarc && d.dmarc !== o.dmarc) add('dns_dmarc', 'warning', "L'enregistrement DMARC a changé", `${o.dmarc}\n→ ${d.dmarc}`);
-        if (d.caa.length && o.caa?.length && !same(d.caa, o.caa)) add('dns_caa', 'warning', 'Les autorités de certification autorisées (CAA) ont changé', `${o.caa.join(' · ')}\n→ ${d.caa.join(' · ')}`);
+        if (d.cname.length && o.cname?.length && !same(d.cname, o.cname)) add('dns_cname', 'warning', tr('Le CNAME du site a changé'), `${o.cname.join(', ')} → ${d.cname.join(', ')}`);
+        if (d.mx.length && o.mx?.length && !same(d.mx, o.mx)) add('dns_mx', 'warning', tr('Les serveurs de messagerie (MX) ont changé'), tr('{v1}\n→ {v2}\n\nUn détournement de domaine sert souvent à intercepter les e-mails.', { v1: o.mx.join(', '), v2: d.mx.join(', ') }));
+        if (d.spf && o.spf && d.spf !== o.spf) add('dns_spf', 'warning', tr('L\'enregistrement SPF a changé'), `${o.spf}\n→ ${d.spf}`);
+        if (d.dmarc && o.dmarc && d.dmarc !== o.dmarc) add('dns_dmarc', 'warning', tr('L\'enregistrement DMARC a changé'), `${o.dmarc}\n→ ${d.dmarc}`);
+        if (d.caa.length && o.caa?.length && !same(d.caa, o.caa)) add('dns_caa', 'warning', tr('Les autorités de certification autorisées (CAA) ont changé'), `${o.caa.join(' · ')}\n→ ${d.caa.join(' · ')}`);
       }
       const seen = new Set(state.seenPrefixes || []);
       [...d.a, ...d.aaaa].forEach((ip) => seen.add(ipPrefix(ip)));
@@ -669,13 +678,13 @@ export async function runCheck(id) {
   if (tlsR.status === 'fulfilled') {
     const t = tlsR.value;
     evaluated.add('tls');
-    if (!t.authorized) inc('tls_invalid', 'critical', 'Certificat TLS invalide', t.authError);
+    if (!t.authorized) inc('tls_invalid', 'critical', tr('Certificat TLS invalide'), t.authError);
     const days = Math.floor((t.expires - now) / DAY);
-    if (days < 14) inc('tls_expiring', days < 3 ? 'critical' : 'warning', days < 0 ? 'Certificat TLS expiré' : `Le certificat TLS expire dans ${days} jour(s)`, `Valide jusqu'au ${dateFr(t.expires)}`);
+    if (days < 14) inc('tls_expiring', days < 3 ? 'critical' : 'warning', days < 0 ? tr('Certificat TLS expiré') : tr('Le certificat TLS expire dans {days} jour(s)', { days }), tr('Valide jusqu\'au {dateFr}', { dateFr: dateFr(t.expires) }));
     if (baseline && state.tls && state.tls.fp !== t.fp) {
       const o = state.tls;
-      if (o.issuer !== t.issuer || o.subject !== t.subject) add('tls_changed', 'critical', 'Le certificat TLS a été émis par un autre émetteur', `${o.issuer || '?'} (${o.subject}) → ${t.issuer || '?'} (${t.subject})`);
-      else add('tls_renewed', 'info', 'Certificat TLS renouvelé', `Nouvelle échéance : ${dateFr(t.expires)}`);
+      if (o.issuer !== t.issuer || o.subject !== t.subject) add('tls_changed', 'critical', tr('Le certificat TLS a été émis par un autre émetteur'), `${o.issuer || '?'} (${o.subject}) → ${t.issuer || '?'} (${t.subject})`);
+      else add('tls_renewed', 'info', tr('Certificat TLS renouvelé'), tr('Nouvelle échéance : {dateFr}', { dateFr: dateFr(t.expires) }));
     }
     state.tls = { fp: t.fp, issuer: t.issuer, subject: t.subject, expires: t.expires, authorized: t.authorized, protocol: t.protocol };
   }
@@ -688,22 +697,22 @@ export async function runCheck(id) {
       evaluated.add('rdap');
       const o = state.rdap && !state.rdap.unsupported ? state.rdap : null;
       if (baseline && o) {
-        if (o.registrar && r.registrar && o.registrar !== r.registrar) add('rdap_registrar', 'critical', 'Le registrar du domaine a changé (transfert)', `${o.registrar} → ${r.registrar}`);
-        else if (r.transferred && r.transferred > (o.transferred || 0)) add('rdap_transfer', 'critical', 'Un transfert du nom de domaine a été enregistré', `Le ${dateFr(r.transferred)}`);
-        if (o.locked && !r.locked) add('rdap_unlocked', 'warning', 'Le verrou anti-transfert du domaine a été retiré', `Statuts : ${r.status.join(', ') || '—'}`);
+        if (o.registrar && r.registrar && o.registrar !== r.registrar) add('rdap_registrar', 'critical', tr('Le registrar du domaine a changé (transfert)'), `${o.registrar} → ${r.registrar}`);
+        else if (r.transferred && r.transferred > (o.transferred || 0)) add('rdap_transfer', 'critical', tr('Un transfert du nom de domaine a été enregistré'), tr('Le {dateFr}', { dateFr: dateFr(r.transferred) }));
+        if (o.locked && !r.locked) add('rdap_unlocked', 'warning', tr('Le verrou anti-transfert du domaine a été retiré'), tr('Statuts : {v1}', { v1: r.status.join(', ') || '—' }));
         if (o.nameservers?.length && r.nameservers.length && !same(o.nameservers, r.nameservers)) {
-          add('rdap_ns', 'critical', 'Les serveurs de noms déclarés au registre ont changé', `${o.nameservers.join(', ')}\n→ ${r.nameservers.join(', ')}\n\nC'est la délégation officielle du domaine : elle change immédiatement, sans cache DNS.`);
+          add('rdap_ns', 'critical', tr('Les serveurs de noms déclarés au registre ont changé'), tr('{v1}\n→ {v2}\n\nC\'est la délégation officielle du domaine : elle change immédiatement, sans cache DNS.', { v1: o.nameservers.join(', '), v2: r.nameservers.join(', ') }));
         }
-        if (o.dnssec === true && r.dnssec === false) add('rdap_dnssec', 'critical', 'DNSSEC a été désactivé sur le domaine', 'La signature DNSSEC est retirée lors de nombreux détournements de zone.');
-        else if (o.dnssec === false && r.dnssec === true) add('rdap_dnssec_on', 'info', 'DNSSEC a été activé sur le domaine');
-        if (r.changed && r.changed > (o.changed || 0)) add('rdap_changed', 'info', 'Le registre signale une modification du domaine', `Dernière modification : ${dateFr(r.changed)}`);
+        if (o.dnssec === true && r.dnssec === false) add('rdap_dnssec', 'critical', tr('DNSSEC a été désactivé sur le domaine'), tr('La signature DNSSEC est retirée lors de nombreux détournements de zone.'));
+        else if (o.dnssec === false && r.dnssec === true) add('rdap_dnssec_on', 'info', tr('DNSSEC a été activé sur le domaine'));
+        if (r.changed && r.changed > (o.changed || 0)) add('rdap_changed', 'info', tr('Le registre signale une modification du domaine'), tr('Dernière modification : {dateFr}', { dateFr: dateFr(r.changed) }));
       }
       if (r.expires) {
         const days = Math.floor((r.expires - now) / DAY);
-        if (days < 30) inc('rdap_expiring', days < 7 ? 'critical' : 'warning', days < 0 ? 'Le nom de domaine a expiré' : `Le nom de domaine expire dans ${days} jour(s)`, `${domain} · échéance le ${dateFr(r.expires)}`);
+        if (days < 30) inc('rdap_expiring', days < 7 ? 'critical' : 'warning', days < 0 ? tr('Le nom de domaine a expiré') : tr('Le nom de domaine expire dans {days} jour(s)', { days }), tr('{domain} · échéance le {dateFr}', { domain, dateFr: dateFr(r.expires) }));
       }
       const risky = r.status.filter((s) => RISKY_STATUS.test(s));
-      if (risky.length) inc('rdap_status', 'critical', `Statut sensible du domaine : ${risky.join(', ')}`, 'Transfert en cours, domaine suspendu ou en cours de suppression.');
+      if (risky.length) inc('rdap_status', 'critical', tr('Statut sensible du domaine : {v1}', { v1: risky.join(', ') }), tr('Transfert en cours, domaine suspendu ou en cours de suppression.'));
       state.rdap = {
         checkedAt: now, registrar: r.registrar, registered: r.registered, expires: r.expires, transferred: r.transferred, changed: r.changed,
         locked: r.locked, status: r.status, nameservers: r.nameservers, dnssec: r.dnssec,
@@ -748,10 +757,10 @@ export async function runCheck(id) {
     if (incidents[key] || !evaluated.has(catOf(key))) continue;
     if (i.muted) continue; // apparu et disparu pendant la maintenance : personne n'en a été prévenu, pas de « rétabli »
     if (closedOutage && ['down', 'http'].includes(key)) continue; // remplacé par le message de fin de panne, avec sa durée
-    add('recovery', 'recovery', `Rétabli : ${i.title}`, '', { was: i.severity });
+    add('recovery', 'recovery', tr('Rétabli : {title}', { title: i.title }), '', { was: i.severity });
   }
   if (closedOutage) {
-    add('recovery', 'recovery', 'Le site est de nouveau accessible', `Indisponible pendant ${fmtDuration(closedOutage.end - closedOutage.start)}.`, { was: 'critical' });
+    add('recovery', 'recovery', tr('Le site est de nouveau accessible'), tr('Indisponible pendant {fmtDuration}.', { fmtDuration: fmtDuration(closedOutage.end - closedOutage.start) }), { was: 'critical' });
   }
   state.incidents = {};
   for (const [key, i] of Object.entries(incidents)) {
@@ -777,7 +786,7 @@ export async function runCheck(id) {
       if (notable.length) {
         const worst = notable.some((a) => a.severity === 'critical') ? 'critical' : 'warning';
         add('maintenance_summary', worst,
-          `Fin de la maintenance : ${notable.length} alerte${notable.length > 1 ? 's' : ''} retenue${notable.length > 1 ? 's' : ''} pendant la fenêtre`,
+          tr('Fin de la maintenance : {count} pendant la fenêtre', { count: plural(notable.length, tr('alerte retenue'), tr('alertes retenues')) }),
           [...new Set(notable.map((a) => `• ${a.title}`))].slice(0, 10).join('\n'));
       }
       await markMaintenanceSummarized(w.id);
@@ -836,7 +845,7 @@ async function notify(w, alerts, settings) {
       if (!r.image) return null;
       // Une seule capture, envoyée à chaque canal concerné ; l'échec de l'un ne prive pas les autres.
       for (const { channel } of photoTargets) {
-        await channel.sendPhoto(r.image, `📸 ${w.name} — la page au moment de l'alerte`).catch((e) => console.error(`[${channel.type}] capture ${w.name}: ${e.message}`));
+        await channel.sendPhoto(r.image, tr('📸 {name} — la page au moment de l\'alerte', { name: w.name })).catch((e) => console.error(`[${channel.type}] capture ${w.name}: ${e.message}`));
       }
     })
     .catch((e) => console.error(`[capture] ${w.name}: ${e.message}`));

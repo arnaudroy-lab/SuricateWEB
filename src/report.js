@@ -7,27 +7,28 @@ import {
 } from './db.js';
 import { phpSupport, codeAlertFiles } from './cms-alerts.js';
 import { esc, fmtDuration } from './util.js';
+import { tr, plural, currentLang, currentLocale, decimalSep } from './i18n.js';
 
-const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+/** Nom du mois (0 à 11) dans la langue du contexte. */
+const monthName = (m) => new Date(Date.UTC(2000, m, 1)).toLocaleDateString(currentLocale(), { month: 'long', timeZone: 'UTC' });
 
 /** Décalage du serveur lui-même (minutes par rapport à UTC), quand le navigateur n'en transmet pas. */
 export const serverTz = () => -new Date().getTimezoneOffset();
 
 /** Un jour local en texte, à partir d'un horodatage UTC et du décalage. */
 const local = (t, tz) => new Date(t + tz * 60e3);
-const fmtDate = (t, tz) => local(t, tz).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
-const fmtDateTime = (t, tz) => local(t, tz).toLocaleString('fr-FR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-const fmtShort = (t, tz) => local(t, tz).toLocaleString('fr-FR', { timeZone: 'UTC', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtDate = (t, tz) => local(t, tz).toLocaleDateString(currentLocale(), { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+const fmtDateTime = (t, tz) => local(t, tz).toLocaleString(currentLocale(), { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtShort = (t, tz) => local(t, tz).toLocaleString(currentLocale(), { timeZone: 'UTC', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** Disponibilité tronquée, jamais arrondie vers le haut (99,9996 % ne doit pas s'afficher « 100 % »). */
 export function fmtPct(u) {
   if (u == null) return '—';
   const f = u >= 99 ? Math.floor(u * 1000) / 1000 : Math.floor(u * 100) / 100;
-  return `${(f >= 100 ? '100' : f.toFixed(u >= 99 ? 3 : 2)).replace('.', ',')} %`;
+  return `${(f >= 100 ? '100' : f.toFixed(u >= 99 ? 3 : 2)).replace('.', decimalSep())}${currentLang() === 'fr' ? ' %' : '%'}`;
 }
 
-const fmtMs = (n) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(2).replace('.', ',')} s` : `${Math.round(n)} ms`);
-const plural = (n, one, many) => `${n} ${n > 1 ? many : one}`;
+const fmtMs = (n) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(2).replace('.', decimalSep())} s` : tr('{v1} ms', { v1: Math.round(n) }));
 
 /**
  * Mois demandé (« 2026-10 ») → bornes en ms UTC. Sans mois : le dernier mois entier.
@@ -54,7 +55,7 @@ export function monthRange(month, tz = 0, now = Date.now()) {
   const key = `${y}-${String(m + 1).padStart(2, '0')}`;
   const prev = m === 0 ? `${y - 1}-12` : `${y}-${String(m).padStart(2, '0')}`;
   const next = m === 11 ? `${y + 1}-01` : `${y}-${String(m + 2).padStart(2, '0')}`;
-  return { key, from, to, label: `${MONTHS[m]} ${y}`, partial: to > now, days: Math.round((to - from) / DAY_MS), prev, next: to > now ? null : next, tz };
+  return { key, from, to, label: `${monthName(m)} ${y}`, partial: to > now, days: Math.round((to - from) / DAY_MS), prev, next: to > now ? null : next, tz };
 }
 
 const overlap = (aStart, aEnd, bStart, bEnd) => Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
@@ -188,10 +189,11 @@ body.rp{min-height:100vh;font-size:15px}
 }
 `;
 
-const BRAND = '<div class="brand"><div class="logo"><img src="/icon-192.png" alt="" width="40" height="40"></div><div><div class="brand-name"><span><span class="suricate">Suricate</span><span class="web">Web</span></span></div><small>Surveillance de sites</small></div></div>';
+/** En-tête de marque : fonction, car le slogan se traduit à l'affichage (langue du contexte), pas au chargement du module. */
+const brand = () => '<div class="brand"><div class="logo"><img src="/icon-192.png" alt="" width="40" height="40"></div><div><div class="brand-name"><span><span class="suricate">Suricate</span><span class="web">Web</span></span></div><small>' + tr('Surveillance de sites') + '</small></div></div>';
 
 const page = ({ title, body, head = '', refresh = 0 }) => `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${currentLang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">${refresh ? `<meta http-equiv="refresh" content="${refresh}">` : ''}
 <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
 <title>${esc(title)}</title><link rel="stylesheet" href="/style.css"><style>${CSS}</style>${head}</head><body class="rp"><main class="rp-main">${body}</main></body></html>`;
@@ -203,93 +205,93 @@ const upPill = (u) => `<span class="pill ${upCls(u)}">${fmtPct(u)}</span>`;
 /** Barres jour par jour. Le détail de chaque jour est dans l'infobulle ET dans le libellé accessible : un écran tactile n'a pas de survol. */
 function dayBars(days, tz) {
   const worst = days.filter((d) => d.outages).length;
-  return `<div class="rp-bars" role="img" aria-label="Disponibilité jour par jour : ${worst ? `${plural(worst, 'jour avec panne', 'jours avec panne')} sur ${days.length}` : `aucune panne sur ${days.length} jours`}">${days.map((d) => {
-    const when = local(d.from, tz).toLocaleDateString('fr-FR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
-    const t = d.uptime == null ? `${when} — pas de donnée` : `${when} — ${fmtPct(d.uptime)}${d.outages ? ` · ${plural(d.outages, 'panne', 'pannes')} (${fmtDuration(d.downtime)})` : ' · aucune panne'}`;
+  return `<div class="rp-bars" role="img" aria-label="${tr('Disponibilité jour par jour')} : ${worst ? tr('{plural} sur {length}', { plural: plural(worst, tr('jour avec panne'), tr('jours avec panne')), length: days.length }) : tr('aucune panne sur {length} jours', { length: days.length })}">${days.map((d) => {
+    const when = local(d.from, tz).toLocaleDateString(currentLocale(), { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
+    const t = d.uptime == null ? tr('{when} — pas de donnée', { when }) : `${when} — ${fmtPct(d.uptime)}${d.outages ? ` · ${plural(d.outages, tr('panne'), tr('pannes'))} (${fmtDuration(d.downtime)})` : tr(' · aucune panne')}`;
     return `<i class="${barCls(d.uptime)}" title="${esc(t)}"></i>`;
-  }).join('')}</div><div class="rp-key" aria-hidden="true"><span>Disponible</span><span class="warn">Dégradé (moins de 99,9 %)</span><span class="bad">Panne importante (moins de 95 %)</span><span class="none">Pas de donnée</span></div>`;
+  }).join('')}</div><div class="rp-key" aria-hidden="true"><span>${tr('Disponible')}</span><span class="warn">${tr('Dégradé (moins de 99,9 %)')}</span><span class="bad">${tr('Panne importante (moins de 95 %)')}</span><span class="none">${tr('Pas de donnée')}</span></div>`;
 }
 
 function outageTable(list, tz) {
-  if (!list.length) return '<p class="rp-empty">Aucune panne sur la période.</p>';
-  return `<table class="rp-table"><thead><tr><th>Début</th><th>Fin</th><th class="r">Durée</th></tr></thead><tbody>${list.map((o) => `<tr>
-<td>${esc(o.startedBefore ? `avant le ${fmtDate(o.start, tz)}` : fmtDateTime(o.start, tz))}</td>
-<td>${o.ongoing ? '<span class="pill crit">En cours</span>' : esc(fmtDateTime(o.end, tz))}</td>
+  if (!list.length) return ('<p class="rp-empty">' + tr('Aucune panne sur la période.') + '</p>');
+  return `<table class="rp-table"><thead><tr><th>${tr('Début')}</th><th>${tr('Fin')}</th><th class="r">${tr('Durée')}</th></tr></thead><tbody>${list.map((o) => `<tr>
+<td>${esc(o.startedBefore ? tr('avant le {fmtDate}', { fmtDate: fmtDate(o.start, tz) }) : fmtDateTime(o.start, tz))}</td>
+<td>${o.ongoing ? ('<span class="pill crit">' + tr('En cours') + '</span>') : esc(fmtDateTime(o.end, tz))}</td>
 <td class="r"><b>${esc(fmtDuration(o.duration))}</b></td></tr>`).join('')}</tbody></table>`;
 }
 
-const KIND = { core: 'noyau', ext: 'extension', theme: 'thème' };
+const kindOf = (k) => ({ core: tr('noyau'), ext: tr('extension'), theme: tr('thème') })[k];
 
 /** Pastille de synthèse « sécurité » d'un site (tableau d'un groupe) : à vérifier dès qu'un contrôle signale quelque chose. */
 function securityPill(c) {
   if (!c || (!c.integrity && !c.code && !c.admins)) return '<span class="pill mute">—</span>';
   const n = (c.integrity?.issues || 0) + (c.code?.alerting || 0) + (c.admins?.flagged || 0);
-  return n ? `<span class="pill crit">${plural(n, 'point à vérifier', 'points à vérifier')}</span>` : '<span class="pill ok">Rien à signaler</span>';
+  return n ? `<span class="pill crit">${plural(n, tr('point à vérifier'), tr('points à vérifier'))}</span>` : ('<span class="pill ok">' + tr('Rien à signaler') + '</span>');
 }
 
 function cmsSection(c, range, tz) {
   const shop = c.type === 'prestashop';
   const label = shop ? 'PrestaShop' : 'WordPress';
   const rows = [];
-  rows.push(`<p><b>${esc(label)} ${esc(c.version || '')}</b>${c.php ? ` · PHP ${esc(c.php)}` : ''}${c.phpSupport?.status === 'ended' ? ' <span class="pill crit">PHP non maintenu</span>' : c.phpSupport?.status === 'ending' ? ' <span class="pill warn">fin de support de PHP proche</span>' : ''}
-<span class="muted rp-small"> · relevé du ${esc(fmtDate(c.checkedAt, tz))}${c.watched.extensions || c.watched.themes ? ` · ${plural(c.watched.extensions, 'extension surveillée', 'extensions surveillées')}, ${plural(c.watched.themes, 'thème surveillé', 'thèmes surveillés')}` : ''}</span></p>`);
-  rows.push(`<h3>Mises à jour effectuées ${range.partial ? 'ce mois-ci' : 'sur la période'}</h3>`);
+  rows.push(`<p><b>${esc(label)} ${esc(c.version || '')}</b>${c.php ? tr(' · PHP {esc}', { esc: esc(c.php) }) : ''}${c.phpSupport?.status === 'ended' ? tr((' <span class="pill crit">' + tr('PHP non maintenu') + '</span>')) : c.phpSupport?.status === 'ending' ? tr((' <span class="pill warn">' + tr('fin de support de PHP proche') + '</span>')) : ''}
+<span class="muted rp-small"> · ${tr('relevé du {date}', { date: esc(fmtDate(c.checkedAt, tz)) })}${c.watched.extensions || c.watched.themes ? ` · ${plural(c.watched.extensions, tr('extension surveillée'), tr('extensions surveillées'))}, ${plural(c.watched.themes, tr('thème surveillé'), tr('thèmes surveillés'))}` : ''}</span></p>`);
+  rows.push(`<h3>${tr('Mises à jour effectuées')} ${range.partial ? tr('ce mois-ci') : tr('sur la période')}</h3>`);
   rows.push(c.applied.length
-    ? `<ul class="rp-list">${c.applied.map((h) => `<li>${esc(h.name)} (${KIND[h.kind] || h.kind}) : ${h.from ? `${esc(h.from)} → ` : 'installée en '}<b>${esc(h.to)}</b> <span class="muted rp-small">· ${esc(fmtDate(h.ts, tz))}</span></li>`).join('')}</ul>`
-    : '<p class="rp-empty">Aucune mise à jour détectée sur la période.</p>');
-  rows.push('<h3>Mises à jour en attente</h3>');
+    ? `<ul class="rp-list">${c.applied.map((h) => `<li>${esc(h.name)} (${kindOf(h.kind) || h.kind}) : ${h.from ? `${esc(h.from)} → ` : tr('installée en ')}<b>${esc(h.to)}</b> <span class="muted rp-small">· ${esc(fmtDate(h.ts, tz))}</span></li>`).join('')}</ul>`
+    : ('<p class="rp-empty">' + tr('Aucune mise à jour détectée sur la période.') + '</p>'));
+  rows.push(('<h3>' + tr('Mises à jour en attente') + '</h3>'));
   rows.push(c.pending.length
-    ? `<ul class="rp-list">${c.pending.slice(0, 12).map((p) => `<li>${esc(p.name)} (${KIND[p.kind]}) : ${esc(p.current || '—')} → <b>${esc(p.available)}</b></li>`).join('')}${c.pending.length > 12 ? `<li class="muted">… et ${c.pending.length - 12} autre(s)</li>` : ''}</ul>`
-    : '<p><span class="pill ok">Tout est à jour</span></p>');
+    ? `<ul class="rp-list">${c.pending.slice(0, 12).map((p) => `<li>${esc(p.name)} (${kindOf(p.kind)}) : ${esc(p.current || '—')} → <b>${esc(p.available)}</b></li>`).join('')}${c.pending.length > 12 ? `<li class="muted">… et ${c.pending.length - 12} autre(s)</li>` : ''}</ul>`
+    : ('<p><span class="pill ok">' + tr('Tout est à jour') + '</span></p>'));
   if (c.integrity || c.code || c.admins) {
-    rows.push('<h3>Sécurité du site</h3><ul class="rp-checks">');
+    rows.push(('<h3>' + tr('Sécurité du site') + '</h3><ul class="rp-checks">'));
     if (c.integrity) {
       // PrestaShop ne publie pas de sommes de contrôle : son module cherche seulement des fichiers PHP là où il ne devrait pas y en avoir.
-      rows.push(`<li><span class="k">${shop ? 'Fichiers PHP dans les dossiers de médias' : `Intégrité des fichiers${c.integrity.partial ? ' (contrôle partiel)' : ''}`}</span>${c.integrity.issues ? `<span class="pill crit">${plural(c.integrity.issues, 'anomalie', 'anomalies')}</span>` : `<span class="pill ok">${shop ? 'aucun' : 'aucune anomalie'}</span>`} <span class="muted rp-small">contrôlé le ${esc(fmtDate(c.integrity.checkedAt, tz))}</span></li>`);
+      rows.push(`<li><span class="k">${shop ? tr('Fichiers PHP dans les dossiers de médias') : tr('Intégrité des fichiers{v1}', { v1: c.integrity.partial ? tr(' (contrôle partiel)') : '' })}</span>${c.integrity.issues ? `<span class="pill crit">${plural(c.integrity.issues, tr('anomalie'), tr('anomalies'))}</span>` : `<span class="pill ok">${shop ? tr('aucun') : tr('aucune anomalie')}</span>`} <span class="muted rp-small">${tr('contrôlé le {date}', { date: esc(fmtDate(c.integrity.checkedAt, tz)) })}</span></li>`);
     }
     if (c.code) {
       const k = c.code;
-      rows.push(`<li><span class="k">Recherche de code suspect</span>${k.alerting ? `<span class="pill ${k.critical ? 'crit' : 'warn'}">${plural(k.alerting, 'fichier à vérifier', 'fichiers à vérifier')}</span>` : '<span class="pill ok">rien de suspect</span>'}${k.toReview ? ` <span class="pill mute">${plural(k.toReview, 'fichier à relire', 'fichiers à relire')}</span>` : ''} <span class="muted rp-small">analysé le ${esc(fmtDate(k.checkedAt, tz))}${k.tracked ? ` · ${plural(k.tracked, 'fichier suivi', 'fichiers suivis')}` : ''}</span></li>`);
+      rows.push(`<li><span class="k">${tr('Recherche de code suspect')}</span>${k.alerting ? `<span class="pill ${k.critical ? 'crit' : 'warn'}">${plural(k.alerting, tr('fichier à vérifier'), tr('fichiers à vérifier'))}</span>` : ('<span class="pill ok">' + tr('rien de suspect') + '</span>')}${k.toReview ? ` <span class="pill mute">${plural(k.toReview, tr('fichier à relire'), tr('fichiers à relire'))}</span>` : ''} <span class="muted rp-small">analysé le ${esc(fmtDate(k.checkedAt, tz))}${k.tracked ? ` · ${plural(k.tracked, tr('fichier suivi'), tr('fichiers suivis'))}` : ''}</span></li>`);
     }
-    if (c.admins) rows.push(`<li><span class="k">Comptes administrateurs : ${c.admins.count}</span>${c.admins.flagged ? `<span class="pill crit">${plural(c.admins.flagged, 'nouveau compte à vérifier', 'nouveaux comptes à vérifier')}</span>` : '<span class="pill ok">aucun nouveau compte inconnu</span>'}</li>`);
+    if (c.admins) rows.push(`<li><span class="k">${tr('Comptes administrateurs : {count}', { count: c.admins.count })}</span>${c.admins.flagged ? `<span class="pill crit">${plural(c.admins.flagged, tr('nouveau compte à vérifier'), tr('nouveaux comptes à vérifier'))}</span>` : ('<span class="pill ok">' + tr('aucun nouveau compte inconnu') + '</span>')}</li>`);
     rows.push('</ul>');
   }
-  return `<div class="card rp-card"><h2>Mises à jour et sécurité</h2>${rows.join('')}</div>`;
+  return `<div class="card rp-card"><h2>${tr('Mises à jour et sécurité')}</h2>${rows.join('')}</div>`;
 }
 
 function siteSection(s, range, { multi = false } = {}) {
   const tz = range.tz;
   const parts = [];
-  parts.push(`<div class="card rp-card"><h2>${esc(multi ? s.name : 'Disponibilité')}${multi ? ` <span class="muted rp-small">· ${esc(s.host)}</span>` : ''}</h2>`);
+  parts.push(`<div class="card rp-card"><h2>${esc(multi ? s.name : tr('Disponibilité'))}${multi ? ` <span class="muted rp-small">· ${esc(s.host)}</span>` : ''}</h2>`);
   if (s.domainOnly) {
-    parts.push('<p class="muted">Surveillance du nom de domaine seul : pas de mesure de disponibilité du site.</p>');
+    parts.push(('<p class="muted">' + tr('Surveillance du nom de domaine seul : pas de mesure de disponibilité du site.') + '</p>'));
   } else {
     parts.push(`<div class="rp-stats">
-<div class="rp-stat"><b class="${upCls(s.uptime)}">${fmtPct(s.uptime)}</b><span>Disponibilité</span></div>
-<div class="rp-stat"><b>${s.outageCount ? esc(fmtDuration(s.downtime)) : '0'}</b><span>Indisponibilité cumulée</span></div>
-<div class="rp-stat"><b>${s.outageCount}</b><span>${s.outageCount > 1 ? 'Pannes' : 'Panne'}${s.longest ? ` · la plus longue : ${esc(fmtDuration(s.longest))}` : ''}</span></div>
-<div class="rp-stat"><b>${esc(fmtMs(s.response.avg))}</b><span>Temps de réponse moyen</span></div></div>`);
-    if (s.monitoredFrom > range.from) parts.push(`<p class="muted rp-small">Surveillance démarrée le ${esc(fmtDate(s.monitoredFrom, tz))} : la période est comptée à partir de cette date.</p>`);
+<div class="rp-stat"><b class="${upCls(s.uptime)}">${fmtPct(s.uptime)}</b><span>${tr('Disponibilité')}</span></div>
+<div class="rp-stat"><b>${s.outageCount ? esc(fmtDuration(s.downtime)) : '0'}</b><span>${tr('Indisponibilité cumulée')}</span></div>
+<div class="rp-stat"><b>${s.outageCount}</b><span>${s.outageCount > 1 ? tr('Pannes') : tr('Panne')}${s.longest ? tr(' · la plus longue : {esc}', { esc: esc(fmtDuration(s.longest)) }) : ''}</span></div>
+<div class="rp-stat"><b>${esc(fmtMs(s.response.avg))}</b><span>${tr('Temps de réponse moyen')}</span></div></div>`);
+    if (s.monitoredFrom > range.from) parts.push(`<p class="muted rp-small">${tr('Surveillance démarrée le {date} : la période est comptée à partir de cette date.', { date: esc(fmtDate(s.monitoredFrom, tz)) })}</p>`);
     parts.push(dayBars(s.days, tz));
     parts.push(`<div class="rp-legend"><span>${esc(fmtDate(range.from, tz))}</span><span>${esc(fmtDate(Math.min(range.to, Date.now()) - 1, tz))}</span></div>`);
-    parts.push('<h3>Pannes</h3>', outageTable(s.outages, tz));
+    parts.push(('<h3>' + tr('Pannes') + '</h3>'), outageTable(s.outages, tz));
   }
   if (s.maintenance.length) {
-    parts.push(`<h3>Maintenances planifiées <span class="muted rp-small">· ${esc(fmtDuration(s.maintenanceMs))}</span></h3><ul class="rp-list">${s.maintenance.map((m) => `<li>${esc(fmtShort(m.start, tz))} → ${esc(fmtShort(m.end, tz))}${m.note ? ` · ${esc(m.note)}` : ''}</li>`).join('')}</ul><p class="muted rp-small">Une maintenance n'est pas comptée comme une indisponibilité.</p>`);
+    parts.push(`<h3>${tr('Maintenances planifiées ')}<span class="muted rp-small">· ${esc(fmtDuration(s.maintenanceMs))}</span></h3><ul class="rp-list">${s.maintenance.map((m) => `<li>${esc(fmtShort(m.start, tz))} → ${esc(fmtShort(m.end, tz))}${m.note ? ` · ${esc(m.note)}` : ''}</li>`).join('')}</ul><p class="muted rp-small">${tr('Une maintenance n\'est pas comptée comme une indisponibilité.')}</p>`);
   }
   parts.push('</div>');
 
-  parts.push(`<div class="card rp-card"><h2>Incidents détectés</h2>${s.alerts.total
-    ? `<p>${s.alerts.critical ? `<span class="pill crit">${plural(s.alerts.critical, 'critique', 'critiques')}</span> ` : ''}${s.alerts.warning ? `<span class="pill warn">${plural(s.alerts.warning, 'avertissement', 'avertissements')}</span>` : ''}</p>
+  parts.push(`<div class="card rp-card"><h2>${tr('Incidents détectés')}</h2>${s.alerts.total
+    ? `<p>${s.alerts.critical ? `<span class="pill crit">${plural(s.alerts.critical, tr('critique'), tr('critiques'))}</span> ` : ''}${s.alerts.warning ? `<span class="pill warn">${plural(s.alerts.warning, tr('avertissement'), tr('avertissements'))}</span>` : ''}</p>
 <table class="rp-table"><tbody>${s.alerts.items.map((a) => `<tr><td style="white-space:nowrap">${esc(fmtShort(a.ts, tz))}</td><td>${esc(a.title)}</td></tr>`).join('')}</tbody></table>${s.alerts.total > s.alerts.items.length ? `<p class="muted rp-small">… et ${s.alerts.total - s.alerts.items.length} autre(s).</p>` : ''}`
-    : '<p><span class="pill ok">Aucun incident</span> <span class="muted">Aucune anomalie détectée sur la période.</span></p>'}</div>`);
+    : ('<p><span class="pill ok">' + tr('Aucun incident') + '</span> <span class="muted">' + tr('Aucune anomalie détectée sur la période.') + '</span></p>')}</div>`);
 
   if (s.cms) parts.push(cmsSection(s.cms, range, tz));
 
   const certs = [];
-  if (s.tlsExpires) certs.push(`Certificat TLS valide jusqu'au <b>${esc(fmtDate(s.tlsExpires, tz))}</b>`);
-  if (s.domainExpires) certs.push(`Nom de domaine renouvelable avant le <b>${esc(fmtDate(s.domainExpires, tz))}</b>`);
-  if (certs.length) parts.push(`<div class="card rp-card"><h2>Échéances</h2><ul class="rp-list">${certs.map((c) => `<li>${c}</li>`).join('')}</ul></div>`);
+  if (s.tlsExpires) certs.push(tr('Certificat TLS valide jusqu\'au <b>{date}</b>', { date: esc(fmtDate(s.tlsExpires, tz)) }));
+  if (s.domainExpires) certs.push(tr('Nom de domaine renouvelable avant le <b>{date}</b>', { date: esc(fmtDate(s.domainExpires, tz)) }));
+  if (certs.length) parts.push(`<div class="card rp-card"><h2>${tr('Échéances')}</h2><ul class="rp-list">${certs.map((c) => `<li>${c}</li>`).join('')}</ul></div>`);
   return parts.join('\n');
 }
 
@@ -301,13 +303,13 @@ export function renderReport({ title, sites, range, nav, generatedAt = Date.now(
   const tz = range.tz;
   const multi = sites.length > 1;
   const link = (month, text, cls = '') => (month ? `<a class="btn ${cls}" href="${esc(`${nav.base}${nav.base.includes('?') ? '&' : '?'}month=${month}&tz=${tz}`)}">${text}</a>` : `<a class="btn" aria-disabled="true">${text}</a>`);
-  const head = `<header class="rp-top">${BRAND}<div class="rp-nav noprint">${link(range.prev, '← Mois précédent')}${link(range.next, 'Mois suivant →')}<button class="btn primary" type="button" data-print>Imprimer / PDF</button></div></header>
-<div class="rp-head"><h1>Rapport mensuel — ${esc(range.label)}</h1><p>${esc(title)}${range.partial ? ' · mois en cours (jusqu’à ce jour)' : ''}</p></div>`;
-  const summary = multi ? `<div class="card rp-card"><h2>Synthèse</h2><table class="rp-table"><thead><tr><th>Site</th><th class="r">Disponibilité</th><th class="r">Pannes</th><th class="r">Incidents</th><th class="r">Mises à jour en attente</th><th class="r">Sécurité</th></tr></thead><tbody>${sites.map((s) => `<tr>
+  const head = `<header class="rp-top">${brand()}<div class="rp-nav noprint">${link(range.prev, tr('← Mois précédent'))}${link(range.next, tr('Mois suivant →'))}<button class="btn primary" type="button" data-print>${tr('Imprimer / PDF')}</button></div></header>
+<div class="rp-head"><h1>Rapport mensuel — ${esc(range.label)}</h1><p>${esc(title)}${range.partial ? tr(' · mois en cours (jusqu’à ce jour)') : ''}</p></div>`;
+  const summary = multi ? `<div class="card rp-card"><h2>${tr('Synthèse')}</h2><table class="rp-table"><thead><tr><th>${tr('Site')}</th><th class="r">${tr('Disponibilité')}</th><th class="r">${tr('Pannes')}</th><th class="r">${tr('Incidents')}</th><th class="r">${tr('Mises à jour en attente')}</th><th class="r">${tr('Sécurité')}</th></tr></thead><tbody>${sites.map((s) => `<tr>
 <td><b>${esc(s.name)}</b><br><span class="muted rp-small">${esc(s.host)}</span></td><td class="r">${s.domainOnly ? '<span class="pill mute">—</span>' : upPill(s.uptime)}</td><td class="r">${s.domainOnly ? '—' : s.outageCount}</td><td class="r">${s.alerts.total}</td><td class="r">${s.cms ? s.cms.pending.length : '—'}</td><td class="r">${securityPill(s.cms)}</td></tr>`).join('')}</tbody></table></div>` : '';
   const body = sites.map((s, i) => `<section class="rp-site ${multi && i ? 'rp-sep' : ''}">${multi ? `<h1 class="rp-sitehead">${esc(s.name)}</h1>` : ''}${siteSection(s, range, { multi: false })}</section>`).join('\n');
-  const foot = `<footer class="rp-foot">Rapport généré par ${esc(appName)} le ${esc(fmtDateTime(generatedAt, tz))}. Période : du ${esc(fmtDate(range.from, tz))} au ${esc(fmtDate(Math.min(range.to, generatedAt) - 1, tz))}.</footer>`;
-  return page({ title: `Rapport ${range.label} — ${title}`, body: head + summary + body + foot, head: '<script src="/report.js" defer></script>' });
+  const foot = `<footer class="rp-foot">${tr('Rapport généré par {app} le {when}. Période : du {from} au {to}.', { app: esc(appName), when: esc(fmtDateTime(generatedAt, tz)), from: esc(fmtDate(range.from, tz)), to: esc(fmtDate(Math.min(range.to, generatedAt) - 1, tz)) })}</footer>`;
+  return page({ title: tr('Rapport {label} — {title}', { label: range.label, title }), body: head + summary + body + foot, head: '<script src="/report.js" defer></script>' });
 }
 
 // ───────────── Page de statut publique ─────────────
@@ -329,24 +331,24 @@ export async function statusData(w, tz = 0, now = Date.now()) {
   };
 }
 
-const STATE = {
-  up: ['ok', 'Tous les systèmes fonctionnent normalement'],
-  down: ['bad', 'Panne en cours'],
-  maintenance: ['warn', 'Maintenance en cours'],
-  paused: ['mute', 'Surveillance en pause'],
-};
+const stateOf = (state) => ({
+  up: ['ok', tr('Tous les systèmes fonctionnent normalement')],
+  down: ['bad', tr('Panne en cours')],
+  maintenance: ['warn', tr('Maintenance en cours')],
+  paused: ['mute', tr('Surveillance en pause')],
+})[state];
 
 export function renderStatusPage({ title, host, data, tz = 0, now = Date.now() }) {
-  const [cls, text] = STATE[data.state];
+  const [cls, text] = stateOf(data.state);
   const pillCls = { ok: 'ok', bad: 'crit', warn: 'warn', mute: 'mute' }[cls];
   const per = (k, l) => `<div class="rp-stat"><b class="${upCls(data.periods[k].uptime)}">${fmtPct(data.periods[k].uptime)}</b><span>${l}</span></div>`;
-  const body = `<header class="rp-top">${BRAND}</header>
+  const body = `<header class="rp-top">${brand()}</header>
 <div class="card rp-card"><div class="rp-state"><span class="dot ${cls}"></span><div><h1>${esc(title)}</h1><div class="muted rp-small">${esc(host)}</div></div></div>
-<p style="margin:16px 0 0"><span class="pill ${pillCls}">${esc(text)}</span>${data.state === 'down' && data.since ? ` <span class="muted">depuis ${esc(fmtShort(data.since, tz))} (${esc(fmtDuration(now - data.since))})</span>` : ''}${data.state === 'maintenance' && data.active ? ` <span class="muted">jusqu'à ${esc(fmtShort(data.active.end, tz))}${data.active.note ? ` · ${esc(data.active.note)}` : ''}</span>` : ''}</p></div>
-<div class="card rp-card"><h2>Disponibilité</h2><div class="rp-stats">${per('24h', '24 heures')}${per('7d', '7 jours')}${per('30d', '30 jours')}${per('90d', '90 jours')}</div>
-${dayBars(data.bars, tz)}<div class="rp-legend"><span>Il y a 90 jours</span><span>Aujourd'hui</span></div></div>
-${data.maintenance.length ? `<div class="card rp-card"><h2>Maintenances</h2><ul class="rp-list">${data.maintenance.map((m) => `<li>${esc(fmtShort(m.start, tz))} → ${esc(fmtShort(m.end, tz))}${m.note ? ` · ${esc(m.note)}` : ''}</li>`).join('')}</ul></div>` : ''}
-<div class="card rp-card"><h2>Pannes des 90 derniers jours</h2>${outageTable(data.outages.map((o) => ({ start: o.start, end: o.end, duration: o.duration, ongoing: o.ongoing })), tz)}</div>
-<footer class="rp-foot">Mis à jour le ${esc(fmtDateTime(data.checkedAt || now, tz))} · cette page se rafraîchit toute seule.</footer>`;
-  return page({ title: `État de ${title}`, body, refresh: 60, head: '<script src="/report.js" defer></script>' });
+<p style="margin:16px 0 0"><span class="pill ${pillCls}">${esc(text)}</span>${data.state === 'down' && data.since ? ` <span class="muted">${tr('depuis {when} ({duration})', { when: esc(fmtShort(data.since, tz)), duration: esc(fmtDuration(now - data.since)) })}</span>` : ''}${data.state === 'maintenance' && data.active ? ` <span class="muted">${tr('jusqu\'à {when}', { when: esc(fmtShort(data.active.end, tz)) })}${data.active.note ? ` · ${esc(data.active.note)}` : ''}</span>` : ''}</p></div>
+<div class="card rp-card"><h2>${tr('Disponibilité')}</h2><div class="rp-stats">${per('24h', tr('24 heures'))}${per('7d', tr('7 jours'))}${per('30d', tr('30 jours'))}${per('90d', tr('90 jours'))}</div>
+${dayBars(data.bars, tz)}<div class="rp-legend"><span>${tr('Il y a 90 jours')}</span><span>${tr('Aujourd\'hui')}</span></div></div>
+${data.maintenance.length ? `<div class="card rp-card"><h2>${tr('Maintenances')}</h2><ul class="rp-list">${data.maintenance.map((m) => `<li>${esc(fmtShort(m.start, tz))} → ${esc(fmtShort(m.end, tz))}${m.note ? ` · ${esc(m.note)}` : ''}</li>`).join('')}</ul></div>` : ''}
+<div class="card rp-card"><h2>${tr('Pannes des 90 derniers jours')}</h2>${outageTable(data.outages.map((o) => ({ start: o.start, end: o.end, duration: o.duration, ongoing: o.ongoing })), tz)}</div>
+<footer class="rp-foot">${tr('Mis à jour le {when} · cette page se rafraîchit toute seule.', { when: esc(fmtDateTime(data.checkedAt || now, tz)) })}</footer>`;
+  return page({ title: tr('État de {title}', { title }), body, refresh: 60, head: '<script src="/report.js" defer></script>' });
 }
