@@ -24,6 +24,10 @@ function pick() {
 }
 
 export const lang = pick();
+// Les pages que le SERVEUR produit (pages du compte de la version hébergée) ne lisent pas le stockage du navigateur : elles lisent ce cookie.
+// Non sensible (une langue), lisible par script, valable un an ; posé ici à chaque chargement, donc aussi chez ceux qui avaient déjà choisi.
+const KEEP = 31536000;
+try { document.cookie = `${KEY}=${lang}; path=/; max-age=${KEEP}; samesite=lax`; } catch { /* sans cookies : ?lang= reste possible */ }
 /** Le visiteur a-t-il déjà choisi une langue sur ce navigateur ? (sinon, celle de son compte peut s'imposer) */
 export const hasChoice = (() => { try { return has(localStorage.getItem(KEY)); } catch { return false; } })();
 export const locale = LOCALES[lang];
@@ -50,14 +54,14 @@ export const isOne = (n) => rules.select(n) === 'one';
 export const plural = (n, one, other) => `${n} ${rules.select(n) === 'one' ? one : other}`;
 
 /**
- * Change la langue (retenue dans ce navigateur) et recharge. Avec `remember`, elle est aussi enregistrée dans les réglages du compte :
- * c'est la langue des alertes, des messages Telegram, des rapports et des e-mails (un invité sans droit d'écriture n'en change pas).
+ * Change la langue (retenue dans ce navigateur) et recharge. Avec `remember`, elle est aussi enregistrée sur le serveur (PUT /api/language) :
+ * pour l'utilisateur (ses pages, ses e-mails) et, s'il peut régler le compte, pour le compte (alertes, messages Telegram, rapports).
  */
 export async function setLang(code, { remember = true } = {}) {
   if (!has(code)) return;
   try { localStorage.setItem(KEY, code); } catch { /* sans stockage, ?lang= reste possible */ }
   if (remember && globalThis.fetch) {
-    const save = fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: code }) }).catch(() => {});
+    const save = fetch('/api/language', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: code }) }).catch(() => {});
     await Promise.race([save, new Promise((r) => setTimeout(r, 1500))]);
   }
   // Une adresse identique à une ancre près ne recharge pas : on recharge explicitement (et on retire ?lang= s'il y est).

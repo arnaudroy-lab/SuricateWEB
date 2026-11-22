@@ -164,7 +164,7 @@ export async function publicSettings(ctx) {
       ? { ...s.telegram, token: '', tokenSet: !!s.telegram.token, tokenMasked: maskToken(s.telegram.token) }
       : { ...s.telegram, token: '', chatId: '', tokenSet: false, tokenMasked: '' },
     baseUrl: s.baseUrl, defaultInterval: s.defaultInterval, userAgent: s.userAgent, builtinKeywords: s.builtinKeywords,
-    retention: s.retention, cmsAfterDays: s.cmsAfterDays, language: s.language, authUser: ctx.user?.name ?? '', defaultKeywords: DEFAULT_KEYWORDS,
+    retention: s.retention, cmsAfterDays: s.cmsAfterDays, language: ctx.user?.language ?? s.language, authUser: ctx.user?.name ?? '', defaultKeywords: DEFAULT_KEYWORDS,
     screenshots: { available: engine.available(), allowed: (await ctx.limits()).screenshots !== false, browser: browserLabel(), usage: await ctx.data.screenshotUsage() },
     app: ctx.app.info,
   };

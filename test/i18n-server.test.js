@@ -59,6 +59,10 @@ test('réglage « langue » : enregistré, relu, valeur inconnue ignorée ; rapp
   assert.equal((await srv.get('/api/settings')).json.language, 'fr');
   assert.equal((await srv.put('/api/settings', { language: 'en' })).json.language, 'en');
   assert.equal((await srv.put('/api/settings', { language: 'klingon' })).json.language, 'en', 'inconnue : inchangée');
+  assert.equal((await srv.put('/api/language', { language: 'fr' })).json.language, 'fr', 'sélecteur de langue : enregistre aussi celle du compte');
+  assert.equal((await srv.get('/api/settings')).json.language, 'fr');
+  assert.equal((await srv.put('/api/language', { language: 'klingon' })).status, 400);
+  await srv.put('/api/language', { language: 'en' });
 
   const id = (await srv.post('/api/watches', { url: 'http://127.0.0.1:9/', name: 'Boutique', interval: 15, config: { statusPage: { enabled: true } } })).json.id;
   const account = (await srv.get(`/api/watches/${id}/report`)).text;

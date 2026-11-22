@@ -207,8 +207,8 @@ export function createApp({
       if (r.perm) await ctx.require(r.perm);
       if (r.raw) ctx.rawBody = await readRaw(req, typeof r.raw === 'number' ? Math.min(r.raw, 20e6) : MAX_BODY); // octets bruts, rien n'est analysé
       else ctx.body = req.method === 'GET' ? {} : await readJson(req);
-      // Les textes de la réponse (messages d'erreur, test Telegram…) sont dans la langue du compte.
-      const language = ctx.account ? (await settingsFor(ctx.account.id)).language : undefined;
+      // Les textes de la réponse (messages d'erreur, test Telegram…) sont dans la langue de l'utilisateur (couche hébergée : `identity.user.language`), sinon du compte.
+      const language = ctx.user?.language ?? (ctx.account ? (await settingsFor(ctx.account.id)).language : undefined);
       const out = await runWithLang(language, () => r.handler(ctx));
       if (out === HANDLED) return;
       send(res, 200, out, ctx.headers);

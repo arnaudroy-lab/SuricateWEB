@@ -15,6 +15,17 @@ import { publicSettings } from './shared.js';
 export default function register({ route }) {
   route('GET', '/api/settings', async (ctx) => publicSettings(ctx), { perm: 'settings:read' });
 
+  // Langue de l'UTILISATEUR (sélecteur de langue, profil) : ouverte à tout utilisateur connecté, invités compris, qui n'ont pas le droit de
+  // modifier les réglages du compte. La couche hébergée la garde par utilisateur (`auth.saveLanguage(user, langue)`) ; le cœur y ajoute la langue
+  // des textes du COMPTE (alertes, messages Telegram) quand l'utilisateur peut régler le compte : le titulaire change tout d'un geste.
+  route('PUT', '/api/language', async (ctx) => {
+    const language = ctx.body?.language;
+    if (!isLang(language)) throw new HttpError(400, tr('Langue inconnue'));
+    await ctx.app.auth?.saveLanguage?.(ctx.user, language);
+    if (await ctx.can('settings:write')) await saveAccountSettings(ctx.account.id, { language });
+    return { language };
+  }, { perm: 'settings:read' });
+
   route('PUT', '/api/settings', async (ctx) => {
     const b = ctx.body;
     const accountId = ctx.account.id;

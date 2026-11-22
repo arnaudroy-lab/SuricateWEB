@@ -62,6 +62,27 @@ const fakeAuth = () => ({
 });
 const SITE = { url: 'http://127.0.0.1:9/', config: { checks: { dns: false, tls: false, rdap: false }, screenshot: { enabled: false } } };
 
+// ───────────── Langue de l'utilisateur (couche hébergée) ─────────────
+
+test('langue : celle de l\'utilisateur (identity.user.language) prime ; PUT /api/language la confie à auth.saveLanguage', async () => {
+  const saved = [];
+  const langs = { 7: 'en' }; // alice a choisi l'anglais ; bob rien
+  const auth = {
+    ...fakeAuth(),
+    authenticate: (req) => { const id = USERS[req.headers['x-user']]; return id ? { ...id, user: { ...id.user, ...(langs[id.user.id] ? { language: langs[id.user.id] } : {}) } } : null; },
+    saveLanguage: async (user, language) => { saved.push([user.id, language]); langs[user.id] = language; },
+  };
+  const { call } = await start({ auth });
+  assert.equal((await call('GET', '/api/settings', { as: 'alice' })).json.language, 'en', 'réglages publics : la langue de l\'utilisateur');
+  assert.equal((await call('GET', '/api/settings', { as: 'bob' })).json.language, 'fr', 'sans choix : celle du compte');
+
+  assert.equal((await call('PUT', '/api/language', { as: 'bob', body: { language: 'en' } })).json.language, 'en');
+  assert.deepEqual(saved, [[8, 'en']]);
+  assert.equal((await call('GET', '/api/settings', { as: 'bob' })).json.language, 'en');
+  assert.equal((await call('PUT', '/api/language', { as: 'bob', body: { language: 'klingon' } })).status, 400, 'langue inconnue refusée');
+  assert.equal((await call('PUT', '/api/language', { body: { language: 'en' } })).status, 401, 'connexion requise');
+});
+
 // ───────────── Valeurs par défaut du cœur ─────────────
 
 test('cœur : sans identifiants dans l\'environnement, l\'application refuse de démarrer', () => {
