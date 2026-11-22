@@ -36,10 +36,10 @@ export async function startServer({ user = 'boss', password = 'motdepasse-test-1
     if (i === 99) throw new Error(`Le serveur ne démarre pas :\n${out}`);
   }
   let cookie = '';
-  const call = async (method, path, body) => {
+  const call = async (method, path, body, extra = {}) => {
     const res = await fetch(base + path, {
       method,
-      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) },
+      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...extra },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
@@ -55,7 +55,7 @@ export async function startServer({ user = 'boss', password = 'motdepasse-test-1
   await login();
   return {
     base, dataDir, call, login, logout: () => { cookie = ''; },
-    get: (p) => call('GET', p), post: (p, b = {}) => call('POST', p, b), put: (p, b = {}) => call('PUT', p, b), del: (p) => call('DELETE', p),
+    get: (p, h) => call('GET', p, undefined, h), post: (p, b = {}, h) => call('POST', p, b, h), put: (p, b = {}, h) => call('PUT', p, b, h), del: (p) => call('DELETE', p),
     stop: async () => { proc.kill(); await exited; },
   };
 }

@@ -31,6 +31,7 @@ export function addTranslations(lang, entries) {
   if (!isLang(lang) || lang === DEFAULT_LANG) return;
   const d = load(lang);
   for (const [k, v] of Object.entries(entries)) if (typeof v === 'string' && !Object.hasOwn(d, k)) d[k] = v;
+  known = null; // l'index des textes connus est à refaire
 }
 
 /** Exécute `fn` avec cette langue (français si elle est inconnue). La valeur de `fn` est rendue telle quelle, promesse comprise. */
@@ -43,6 +44,42 @@ export function tr(text, params) {
   const lang = currentLang();
   const out = lang === DEFAULT_LANG ? text : (load(lang)[text] ?? text);
   return params ? out.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(params, k) ? String(params[k]) : m)) : out;
+}
+
+// ───────────── Textes déjà enregistrés ─────────────
+// Les alertes (titre, détail) et les incidents sont enregistrés dans la langue du compte AU MOMENT de la détection. Pour qu'un utilisateur qui change
+// de langue les lise dans la sienne, on les retraduit à l'affichage : le texte est rapproché d'un texte connu (français ou autre langue, tel quel ou
+// gabarit à {paramètres}), ramené à sa clé française, puis traduit. Un texte inconnu (extrait de page, liste de fichiers…) reste tel quel.
+let known = null;
+const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function buildKnown() {
+  const exact = new Map(); // texte, dans n'importe quelle langue → clé française
+  const templates = [];
+  const add = (text, key) => {
+    if (!/\{\w+\}/.test(text)) { if (!exact.has(text)) exact.set(text, key); return; }
+    const names = []; let re = ''; let last = 0;
+    for (const m of text.matchAll(/\{(\w+)\}/g)) { re += escRe(text.slice(last, m.index)) + '([\\s\\S]+?)'; names.push(m[1]); last = m.index + m[0].length; }
+    templates.push({ re: new RegExp(`^${re}${escRe(text.slice(last))}$`), names, key, weight: text.replace(/\{\w+\}/g, '').length });
+  };
+  for (const code of Object.keys(LOCALES)) {
+    if (code === DEFAULT_LANG) continue;
+    for (const [key, value] of Object.entries(load(code))) { add(key, key); add(value, key); }
+  }
+  templates.sort((a, b) => b.weight - a.weight); // le plus précis d'abord
+  return { exact, templates };
+}
+
+/** Retraduit un texte enregistré dans la langue du contexte (voir ci-dessus). Sans correspondance : le texte, inchangé. */
+export function retranslate(text) {
+  if (typeof text !== 'string' || text.length < 3) return text;
+  known ??= buildKnown();
+  if (known.exact.has(text)) return tr(known.exact.get(text));
+  for (const t of known.templates) {
+    const m = t.re.exec(text);
+    if (m) return tr(t.key, Object.fromEntries(t.names.map((n, i) => [n, retranslate(m[i + 1])])));
+  }
+  return text;
 }
 
 /** « 1 site » / « 3 sites » : `one` et `other` sont déjà traduits (plural(n, tr('site'), tr('sites'))). */

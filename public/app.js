@@ -197,7 +197,8 @@ const S = { auth: null, caps: {}, plan: null, watches: [], groups: [], settings:
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
     method: opts.method || 'GET',
-    headers: opts.body ? { 'content-type': 'application/json' } : undefined,
+    // La langue affichée accompagne chaque requête : le serveur répond (erreurs, alertes enregistrées dans une autre langue) dans CETTE langue.
+    headers: { 'x-lang': lang, ...(opts.body ? { 'content-type': 'application/json' } : {}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));

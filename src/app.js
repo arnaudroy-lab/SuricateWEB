@@ -49,7 +49,7 @@ import { fileURLToPath } from 'node:url';
 import { getSettings, getInstanceSettings, settingsFor, getWatch, markAlertsReadUpTo, GroupError } from './db.js';
 import { startScheduler } from './scheduler.js';
 import { startShotPurge } from './screenshot.js';
-import { runWithLang } from './i18n.js';
+import { runWithLang, isLang } from './i18n.js';
 import { startTelegramPoller, startAccountPollers } from './telegram-poll.js';
 import { configureExtensions } from './extensions.js';
 import { createNetGuard, netGuardFromEnv } from './net-guard.js';
@@ -208,7 +208,8 @@ export function createApp({
       if (r.raw) ctx.rawBody = await readRaw(req, typeof r.raw === 'number' ? Math.min(r.raw, 20e6) : MAX_BODY); // octets bruts, rien n'est analysé
       else ctx.body = req.method === 'GET' ? {} : await readJson(req);
       // Les textes de la réponse (messages d'erreur, test Telegram…) sont dans la langue de l'utilisateur (couche hébergée : `identity.user.language`), sinon du compte.
-      const language = ctx.user?.language ?? (ctx.account ? (await settingsFor(ctx.account.id)).language : undefined);
+      const asked = req.headers['x-lang']; // la langue affichée par l'interface (public/app.js), prioritaire : on lit ce que l'on voit
+      const language = isLang(asked) ? asked : (ctx.user?.language ?? (ctx.account ? (await settingsFor(ctx.account.id)).language : undefined));
       const out = await runWithLang(language, () => r.handler(ctx));
       if (out === HANDLED) return;
       send(res, 200, out, ctx.headers);

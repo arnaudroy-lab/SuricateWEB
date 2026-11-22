@@ -764,6 +764,13 @@ textarea.input { height: auto; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
+/* Téléphone : la barre du bas passe AU-DESSUS du contenu (les listes en verre, comme les alertes, la recouvraient) et son verre est assez opaque
+   pour qu'on ne lise pas le texte qui défile derrière les icônes. */
+@media (max-width: 860px) {
+  .sidebar { z-index: 30; }
+  .sidebar::before { background: var(--surface); }
+}
+
 /* ───── Sélecteur de langue ───── */
 .lang-select { font: inherit; font-size: 12.5px; color: var(--text-2); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; max-width: 104px; cursor: pointer; }
 .side-foot .lang-select { width: 100%; max-width: none; margin-bottom: 8px; }

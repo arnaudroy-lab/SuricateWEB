@@ -76,3 +76,28 @@ test('réglage « langue » : enregistré, relu, valeur inconnue ignorée ; rapp
   await srv.put('/api/settings', { language: 'fr' });
   assert.match((await srv.get(`/api/watches/${id}/report`)).text, /<html lang="fr">/);
 });
+
+test('textes enregistrés : retraduits à l\'affichage dans la langue de l\'utilisateur (alertes, incidents)', async () => {
+  const { retranslate } = await import('../src/i18n.js');
+  const { alertRow } = await import('../src/routes/shared.js');
+  const en = (t) => runWithLang('en', () => retranslate(t));
+  const fr = (t) => runWithLang('fr', () => retranslate(t));
+  assert.equal(en('Le contenu de la page a changé'), 'The page content has changed');
+  assert.equal(en('2 ligne(s) ajoutée(s), 4 supprimée(s) · similarité 0 %'), '2 line(s) added, 4 removed · similarity 0 %', 'gabarit à paramètres');
+  assert.equal(en('Rétabli : Le titre de la page a changé'), 'Recovered: The page title has changed', 'paramètre lui-même retraduit');
+  assert.equal(fr('The page title has changed'), 'Le titre de la page a changé', 'dans l\'autre sens');
+  assert.equal(en('Already English: The page content has changed'), 'Already English: The page content has changed', 'texte inconnu : inchangé');
+  assert.equal(fr('Le titre de la page a changé'), 'Le titre de la page a changé', 'déjà dans la langue : inchangé');
+  assert.equal(en('<?php eval($x); ?>'), '<?php eval($x); ?>', 'contenu quelconque : inchangé');
+  const row = { id: 1, watch_id: 2, watch_name: 'Boutique', ts: 1, severity: 'critical', type: 'title_changed', title: 'Le titre de la page a changé', detail: 'Nouveau texte suspect : « hacked by »', read: 0, notified: 0, maintenance: 0 };
+  const shown = runWithLang('en', () => alertRow(row));
+  assert.deepEqual([shown.title, shown.detail], ['The page title has changed', 'New suspicious text: « hacked by »']);
+  assert.equal(alertRow(row).title, 'Le titre de la page a changé', 'français hors contexte : inchangé');
+});
+
+test('en-tête x-lang : la langue affichée par l\'interface prime sur celle du compte', async () => {
+  await srv.put('/api/language', { language: 'fr' });
+  assert.equal((await srv.put('/api/language', { language: 'klingon' })).json.error, 'Langue inconnue', 'compte en français, sans en-tête');
+  assert.equal((await srv.put('/api/language', { language: 'klingon' }, { 'x-lang': 'en' })).json.error, 'Unknown language', 'x-lang: en');
+  assert.equal((await srv.put('/api/language', { language: 'klingon' }, { 'x-lang': 'xx' })).json.error, 'Langue inconnue', 'valeur inconnue : ignorée');
+});

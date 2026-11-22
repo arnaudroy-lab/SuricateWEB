@@ -10,6 +10,7 @@ import { resolvePage } from '../pages.js';
 import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
 import { clamp, SEV } from '../util.js';
+import { retranslate } from '../i18n.js';
 
 export function normalizeUrl(input) {
   let u = String(input || '').trim();
@@ -112,7 +113,7 @@ export async function rememberDomainAck(id) {
 
 export async function summarize(w, ctx) {
   const quietDomain = domainExpiryAcked(w, ctx);
-  const incidents = Object.entries(w.state.incidents || {}).map(([key, i]) => ({ key, ...i, ...((key === 'rdap_expiring' && quietDomain) || (isCmsIncident(key) && cmsIncidentAcked(w, key, i)) ? { acked: true } : {}) }));
+  const incidents = Object.entries(w.state.incidents || {}).map(([key, i]) => ({ key, ...i, title: retranslate(i.title), detail: retranslate(i.detail), ...((key === 'rdap_expiring' && quietDomain) || (isCmsIncident(key) && cmsIncidentAcked(w, key, i)) ? { acked: true } : {}) }));
   const open = incidents.filter((i) => !i.acked);
   const unread = ctx.unread[w.id] || { critical: 0, warning: 0, info: 0 };
   let status = 'ok';
@@ -148,8 +149,8 @@ export async function buildCtx(ctx) {
 }
 
 export const alertRow = (r) => ({
-  id: r.id, watchId: r.watch_id, watchName: r.watch_name, ts: r.ts, severity: r.severity, type: r.type, title: r.title,
-  detail: r.detail, snapshotId: r.snapshot_id, prevSnapshotId: r.prev_snapshot_id, read: !!r.read, notified: !!r.notified, notifyError: r.notify_error, maintenance: r.maintenance > 0,
+  id: r.id, watchId: r.watch_id, watchName: r.watch_name, ts: r.ts, severity: r.severity, type: r.type, title: retranslate(r.title),
+  detail: retranslate(r.detail), snapshotId: r.snapshot_id, prevSnapshotId: r.prev_snapshot_id, read: !!r.read, notified: !!r.notified, notifyError: r.notify_error, maintenance: r.maintenance > 0,
 });
 
 export const maskToken = (t) => (t ? t.slice(0, 4) + '••••••••' + t.slice(-4) : '');
