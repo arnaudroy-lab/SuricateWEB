@@ -633,4 +633,4 @@ Une faille dans SuricateWeb touche potentiellement tous les sites qu'il surveill
 
 ## Licence
 
-SuricateWeb est distribué sous licence **[Apache 2.0](LICENSE)** : usage, modification et redistribution libres, y compris commerciaux, à condition de conserver la licence et l'avis de copyright ([NOTICE](NOTICE)) ; la licence comprend aussi une concession de brevets et exclut toute garantie. Le projet n'a aucune dépendance npm : aucun code tiers n'est embarqué.
+SuricateWeb est distribué sous licence **[GNU AGPL v3](LICENSE)** (AGPL-3.0) : usage, étude, modification et redistribution libres, y compris commerciaux, à condition de conserver la licence et l'avis de copyright ([NOTICE](NOTICE)) et de publier, sous la même licence, le code source de toute version modifiée que vous distribuez **ou que vous proposez à des utilisateurs à travers un réseau** (article 13 : une version modifiée exploitée comme service en ligne doit en offrir le code source). La licence comprend aussi une concession de brevets et exclut toute garantie. Le projet n'a aucune dépendance npm : aucun code tiers n'est embarqué.

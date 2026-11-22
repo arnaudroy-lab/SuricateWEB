@@ -12,10 +12,10 @@ test('package.json : champs utilisés par la barre latérale', () => {
   assert.match(pkg.version, /^\d+\.\d+\.\d+/, 'version semver');
   assert.match(pkg.repository?.url ?? '', /^git\+https:\/\/github\.com\/[\w.-]+\/[\w.-]+\.git$/);
   assert.match(pkg.homepage ?? '', /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+#readme$/);
-  assert.equal(pkg.license, 'Apache-2.0');
+  assert.equal(pkg.license, 'AGPL-3.0-only');
   const licence = readFileSync(new URL('../LICENSE', import.meta.url), 'utf8');
-  assert.match(licence, /Apache License\s+Version 2\.0, January 2004/, 'LICENSE contient le texte Apache 2.0');
-  assert.equal(licence.includes('MIT License'), false, "plus de trace de l'ancienne licence");
+  assert.match(licence, /GNU AFFERO GENERAL PUBLIC LICENSE\s+Version 3, 19 November 2007/, 'LICENSE contient le texte AGPL v3');
+  assert.equal(/Apache License|MIT License/.test(licence), false, "plus de trace des anciennes licences");
   assert.match(readFileSync(new URL('../NOTICE', import.meta.url), 'utf8'), /^SuricateWeb\nCopyright 2026 /);
 });
 
