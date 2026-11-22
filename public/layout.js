@@ -5,6 +5,8 @@
 // Les groupes viennent dans leur ordre, puis « Sans groupe » (gid: null), toujours en dernier.
 // Toutes les fonctions retournent un NOUVEAU modèle (ou le même objet si rien ne change) : jamais de mutation.
 
+import { tr } from './i18n.js';
+
 const byPosition = (a, b) => a.position - b.position || String(a.name).localeCompare(String(b.name), 'fr');
 const clone = (model) => model.map((s) => ({ gid: s.gid, ids: [...s.ids] }));
 
@@ -106,8 +108,8 @@ export function applyModel(sites, groups, model) {
 export function describeMove(model, kind, id, names) {
   if (kind === 'group') {
     const groups = model.filter((s) => s.gid !== null);
-    return `Groupe « ${names.group(id)} » : position ${groups.findIndex((s) => s.gid === id) + 1} sur ${groups.length}.`;
+    return tr('Groupe « {name} » : position {pos} sur {total}.', { name: names.group(id), pos: groups.findIndex((s) => s.gid === id) + 1, total: groups.length });
   }
   const sec = model.find((s) => s.ids.includes(id));
-  return `« ${names.site(id)} » : position ${sec.ids.indexOf(id) + 1} sur ${sec.ids.length}, ${sec.gid === null ? 'sans groupe' : `groupe « ${names.group(sec.gid)} »`}.`;
+  return tr('« {name} » : position {pos} sur {total}, {where}.', { name: names.site(id), pos: sec.ids.indexOf(id) + 1, total: sec.ids.length, where: sec.gid === null ? tr('sans groupe') : tr('groupe « {name} »', { name: names.group(sec.gid) }) });
 }

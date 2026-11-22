@@ -525,6 +525,20 @@ Si des alertes d'avertissement ou critiques ont été retenues, SuricateWeb envo
 
 > **À savoir** : un changement ponctuel survenu pendant la fenêtre (contenu remplacé, script ajouté) ne vous est signalé qu'à la fin, dans le récapitulatif. Pour une intervention à risque, gardez la fenêtre courte et ouvrez le journal des alertes avant de la terminer.
 
+## Langues
+
+L'interface existe en **français** (par défaut, quelle que soit la langue du navigateur) et en **anglais**. Le sélecteur de langue est dans la barre latérale et sur l'écran de connexion ; le choix est retenu dans le navigateur, et `?lang=en` dans une adresse l'impose (lien partageable). Changer de langue recharge la page.
+
+**Ce qui est traduit** : toute l'interface (tableau de bord, détail d'un site, alertes, réglages, formulaires, connexion), les dates, les nombres et les unités. **Ce qui ne l'est pas encore** : les messages Telegram, les e-mails, le rapport mensuel et la page de statut publique, générés par le serveur, restent en français.
+
+**Ajouter une langue** (ex. `es`) :
+1. Dans `public/i18n.js`, ajouter la langue à `LANGS` (nom écrit dans cette langue) et à `LOCALES` (ex. `es-ES`).
+2. `node scripts/i18n-missing.js es > public/locales/es.json` : produit le squelette `{ "texte français": "" }` ; le compléter.
+3. Ajouter `/locales/es.json` à la coque de `public/sw.js` et incrémenter son numéro de cache.
+4. `node --disable-warning=ExperimentalWarning --test test/i18n.test.js` : vérifie que tous les textes sont traduits, qu'aucun n'est resté sans objet et que les `{paramètres}` sont identiques au français.
+
+**Écrire du code** : un texte affiché s'écrit `tr('Texte français')`, avec des paramètres `{nom}` : `tr('Depuis {when}', { when })`. Le français est la clé, donc un texte sans traduction s'affiche en français, jamais vide. Les pluriels passent par `plural(n, tr('site'), tr('sites'))` (règle de la langue : en français 0 est au singulier, en anglais au pluriel). Ne jamais comparer une valeur à un texte traduit : comparer des codes.
+
 ## Limites à connaître
 
 - **La comparaison de contenu lit le HTML tel que le serveur le renvoie**, sans l'exécuter. Le contenu généré uniquement par JavaScript (SPA) n'est pas comparé (la capture d'écran, elle, l'affiche), mais DNS, TLS, RDAP, redirections et scripts restent surveillés.
@@ -572,6 +586,8 @@ plugins/             plugins WordPress et PrestaShop (jeton, versions, mises à 
 public/              interface (JS/CSS vanilla, sans build)
 public/report.js     bouton « Imprimer / PDF » du rapport (sans script en ligne)
 public/layout.js     organisation en groupes : calcul pur (déplacements, pas au clavier), sans DOM, testé unitairement
+public/i18n.js       traduction de l'interface : tr('texte français'), langue choisie avant le démarrage de l'application
+public/locales/      un dictionnaire JSON par langue (en.json) : { "texte français": "traduction" }
 test/                node --test (unitaires, API réelle, et bout en bout dans un vrai Chrome)
 test-support/        lancement d'un serveur de test et pilotage de Chrome (tests et captures)
 scripts/docs/        mode démo : faux sites, données fictives, génération des captures de ce README

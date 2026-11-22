@@ -763,3 +763,9 @@ textarea.input { height: auto; }
   .sidebar::before, .brand { background: var(--sw-glass-modal); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ───── Sélecteur de langue ───── */
+.lang-select { font: inherit; font-size: 12.5px; color: var(--text-2); background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; max-width: 104px; cursor: pointer; }
+.side-foot .lang-select { width: 100%; max-width: none; margin-bottom: 8px; }
+.lang-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.login-lang { margin: 14px 0 0; text-align: center; }
