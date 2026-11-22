@@ -21,7 +21,7 @@ Elle signifie que vous acceptez le **Developer Certificate of Origin 1.1** (http
 Vous acceptez en plus ceci :
 
 1. Votre contribution est distribuée sous **AGPL-3.0**, comme le reste du cœur.
-2. Vous accordez au titulaire du projet (Burotica) une licence mondiale, perpétuelle, gratuite et non exclusive pour utiliser, modifier et distribuer votre contribution **sous toute autre licence**, y compris propriétaire ou commerciale (version hébergée, licence commerciale pour des entreprises qui ne peuvent pas utiliser l'AGPL).
+2. Vous accordez au titulaire du projet (Arnaud Roy) une licence mondiale, perpétuelle, gratuite et non exclusive pour utiliser, modifier et distribuer votre contribution **sous toute autre licence**, y compris propriétaire ou commerciale (version hébergée, licence commerciale pour des entreprises qui ne peuvent pas utiliser l'AGPL).
 3. Vous conservez le copyright sur votre contribution.
 
 Si vous ne pouvez pas accepter le point 2, ne soumettez pas de contribution : ouvrez plutôt une issue décrivant le besoin.
