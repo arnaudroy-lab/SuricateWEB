@@ -339,7 +339,9 @@ const planLinks = () => [...(restricted() ? [] : S.caps?.accountLinks ?? []), ..
 // Boutons « par groupe » et « par site » (capabilities.scopeLinks : [{ label, href, icon }]) : ils mènent à une page du serveur (notifications, partage…)
 // déjà réglée sur ce groupe ou ce site, par `?scope=group|site&id=N`. Même règles que les liens de compte : chemin du même site seulement, texte seulement,
 // icône prise dans notre liste (sinon « external »). Le cœur auto-hébergé n'en annonce aucun.
-const scopeLinks = () => (S.caps?.scopeLinks ?? []).map((l) => ({ href: localHref(l?.href), label: String(l?.label ?? '').slice(0, 40), icon: Object.hasOwn(ICONS, l?.icon) ? l.icon : 'external' })).filter((l) => l.href && l.label);
+// Libellés des boutons « par groupe / par site » annoncés par la couche hébergée : listés ici pour être traduits avec le reste de l'interface.
+const HOSTED_LABELS = () => [tr('Notifications'), tr('Partages')];
+const scopeLinks = () => (S.caps?.scopeLinks ?? []).map((l) => ({ href: localHref(l?.href), label: tr(String(l?.label ?? '')).slice(0, 40), icon: Object.hasOwn(ICONS, l?.icon) ? l.icon : 'external' })).filter((l) => l.href && l.label);
 const scopeHref = (l, scope, id) => `${l.href}${l.href.includes('?') ? '&' : '?'}scope=${scope}&id=${id}`;
 let planAt = 0;
 async function refreshPlan() {

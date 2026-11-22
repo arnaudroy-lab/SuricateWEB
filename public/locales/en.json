@@ -846,5 +846,7 @@
  "Infrastructure et nom de domaine": "Infrastructure and domain name",
  "https://www.monsite.fr": "https://www.mysite.com",
  ".horloge, #bandeau-cookies, .pub": ".clock, #cookie-banner, .ad",
- "/panier | Panier\n/contact\n/mon-compte | Connexion": "/cart | Cart\n/contact\n/my-account | Login"
+ "/panier | Panier\n/contact\n/mon-compte | Connexion": "/cart | Cart\n/contact\n/my-account | Login",
+ "Notifications": "Notifications",
+ "Partages": "Sharing"
 }
