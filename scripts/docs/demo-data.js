@@ -66,6 +66,7 @@ const CMS_REPORTS = {
       item('Akismet Anti-spam', 'akismet', '5.3.5'),
       item('Redirection', 'redirection', '5.5.0'),
       item('Hello Dolly', 'hello-dolly', '1.7.2', null, { active: false }),
+      item('SuricateWeb', 'suricateweb', '1.8.0'), // le plugin lui-même, à jour : pastille verte « WP v1.8.0 » dans la liste des sites
     ],
     themes: [
       item(T('Cabinet Martin (thème enfant)', 'Martin Accounting (child theme)'), 'cabinet-martin-child', '2.4.0'),
@@ -99,6 +100,7 @@ const CMS_REPORTS = {
       item(T('Paiement par chèque', 'Pay by check'), 'ps_checkpayment', '2.0.2'),
       item(T('Export du catalogue (sur mesure)', 'Catalog export (custom)'), 'nova_feed', '1.4', null, { known: false }),
       item(T('Transporteur local', 'Local carrier'), 'novashipping', '0.9.3', null, { known: false, active: false }),
+      item('SuricateWeb', 'suricateweb', '1.4.0'), // un plugin plus ancien que celui livré : pastille orange « PS v1.4.0 ↑ »
     ],
     themes: [
       item('Classic', 'classic', '2.0.3', '2.1.0', { active: false, age: 6 }),

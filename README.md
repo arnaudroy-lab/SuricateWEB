@@ -362,6 +362,21 @@ Pour un site WordPress ou PrestaShop, SuricateWeb ajoute l'onglet **Mises à jou
 - Une **pastille** sur l'onglet donne le nombre de mises à jour disponibles (noyau, extensions et thèmes réunis).
 - Si un relevé échoue (plugin désactivé, jeton refusé, site en panne…), le tableau reste celui du **dernier relevé réussi**, avec le message d'erreur, et SuricateWeb réessaie plus tôt que d'habitude (au plus 30 minutes plus tard).
 
+### Dans la liste des sites : le CMS est-il connecté ?
+
+Chaque site WordPress ou PrestaShop porte une **pastille** dans la liste (colonne des indicateurs, à côté du certificat et du domaine) : **WP** ou **PS**, avec la **version du plugin installé** sur le site.
+
+| Pastille | Signification |
+|---|---|
+| **WP v1.8.0** (verte) | connecté : le dernier relevé a réussi, et le plugin installé est à jour |
+| **PS v1.4.0 ↑** (orange) | connecté, mais le plugin installé est **plus ancien** que celui que SuricateWeb propose en téléchargement : mettez-le à jour |
+| **WP v1.8.0 · non joint** (rouge) | le dernier relevé a échoué (jeton refusé, site injoignable…) ; la dernière version connue reste affichée, et l'infobulle donne l'erreur |
+| **WP · en attente** (grise) | aucun relevé pour le moment : installez le plugin, collez le jeton, puis **Actualiser** |
+
+Sans pastille : le site n'a pas de CMS configuré (ou c'est un « Domaine seul »). L'infobulle détaille l'état et la date du relevé ; sur écran étroit (≤ 1100 px), où la colonne des indicateurs est masquée, la pastille se réduit à une icône colorée dans la ligne du nom.
+
+La version du plugin est lue dans le relevé : annoncée par le plugin, sinon dans la ligne qu'il occupe lui-même dans la liste des extensions, donc **sans mettre le plugin à jour**. Un plugin très ancien qui n'y figure pas est indiqué « connecté, version inconnue », jamais « à jour » par défaut. L'API (`GET /api/watches`) porte `cmsLink` : `{ type, status, version, latest, outdated, checkedAt, error }`.
+
 ### Mise en place
 
 Le relevé se fait **depuis le site**, là où ces informations existent : un petit plugin, installé sur le site, ne répond qu'à SuricateWeb. Il n'envoie rien de lui-même.

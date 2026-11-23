@@ -841,10 +841,45 @@ function signalChips(w) {
     const loud = w.incidents.some((i) => i.key === 'rdap_expiring' && !i.acked);
     chips.push(h('span', { class: `chip ${loud ? (d < 7 ? 'crit' : d < 30 ? 'warn' : '') : ''}`, title: tr('Nom de domaine valide jusqu\'au {dday}', { dday: dday(w.domainExpires) }) }, ic('globe'), d < 0 ? tr('expiré') : `${d} ${DAYU}`));
   }
+  const cms = cmsChip(w);
+  if (cms) chips.push(cms);
   return chips;
 }
 
 /** opts.handle : poignée de glisser-déposer · opts.chip : affiche le groupe (vue « Par état », où les groupes ne sont pas visibles). */
+/**
+ * Lien avec le CMS d'un site (WordPress « WP » / PrestaShop « PS »), pour la liste : le site est-il relié à son plugin, avec la version du plugin installé.
+ * Vert : connecté et à jour · orange : connecté mais le plugin installé est plus ancien que celui qu'on propose · rouge : le dernier relevé a échoué ·
+ * gris : aucun relevé pour le moment. null pour un site sans CMS.
+ */
+function cmsState(w) {
+  const l = w.cmsLink;
+  if (!l) return null;
+  const kind = l.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
+  const abbr = l.type === 'prestashop' ? 'PS' : 'WP';
+  const v = l.version ? `v${l.version}` : '';
+  if (l.status === 'pending') {
+    return { tone: '', text: `${abbr} · ${tr('en attente')}`, title: tr('{kind} : aucun relevé du plugin pour le moment. Installez le plugin, collez le jeton dans ses réglages, puis actualisez.', { kind }) };
+  }
+  if (l.status === 'error') {
+    return { tone: 'crit', text: `${abbr}${v ? ` ${v}` : ''} · ${tr('non joint')}`, title: tr('{kind} : le dernier relevé a échoué ({error}).', { kind, error: l.error || tr('erreur inconnue') }) + (v ? ' ' + tr('Dernière version du plugin connue : {version}.', { version: l.version }) : '') };
+  }
+  if (l.outdated) {
+    return { tone: 'warn', text: `${abbr} ${v} ↑`, title: tr('{kind} connecté. Plugin {version} installé, {latest} disponible : mettez-le à jour (fiche du site › Mises à jour).', { kind, version: l.version, latest: l.latest }) };
+  }
+  return { tone: 'ok', text: v ? `${abbr} ${v}` : abbr, title: v ? tr('{kind} connecté · plugin {version} (à jour) · relevé {rel}', { kind, version: l.version, rel: rel(l.checkedAt) }) : tr('{kind} connecté · version du plugin inconnue (plugin très ancien : mettez-le à jour) · relevé {rel}', { kind, rel: rel(l.checkedAt) }) };
+}
+/** Pastille complète, dans la colonne des indicateurs (certificat, domaine). */
+function cmsChip(w) {
+  const st = cmsState(w);
+  return st ? h('span', { class: `chip cms-chip ${st.tone}`, title: st.title, 'aria-label': st.title }, ic('layers'), st.text) : null;
+}
+/** Version compacte (icône seule) dans la ligne du nom : seulement là où la colonne des indicateurs est masquée (écran étroit). */
+function cmsDot(w) {
+  const st = cmsState(w);
+  return st ? h('span', { class: `pill ${st.tone || 'mute'} icon-only cms-narrow`, title: st.title, 'aria-label': st.title }, ic('layers')) : null;
+}
+
 function siteRow(w, opts = {}) {
   const visible = w.incidents.filter((i) => !i.acked);
   const top = visible.find((i) => i.severity === 'critical') || visible[0];
@@ -860,7 +895,7 @@ function siteRow(w, opts = {}) {
   // « e.target === e.currentTarget » : Entrée sur un bouton de la ligne (poignée, vérifier) ne doit pas ouvrir le site.
   return h('div', { class: `site ${w.enabled ? '' : 'dim'}`, 'data-id': w.id, tabindex: 0, role: 'link', onclick: () => (location.hash = `#/sites/${w.id}`), onkeydown: (e) => e.target === e.currentTarget && e.key === 'Enter' && (location.hash = `#/sites/${w.id}`) },
     h('div', { class: 'id' }, opts.handle ? handleBtn('site', w.id, tr('Déplacer « {name} »', { name: w.name })) : null, w.shot ? h('img', { class: 'thumb', src: shotUrl(w.shot, true), loading: 'lazy', alt: '', title: tr('Capture {rel}', { rel: rel(w.shot.ts) }) }) : avatar(w.name), h('div', { class: 't' },
-      h('div', { class: 'name' }, h('span', { class: 'n' }, w.name), statusPill(w), w.maintenanceUntil ? maintPill(w, true) : null, grp ? h('span', { class: 'gchip', style: `--gc:${grp.color}`, title: tr('Groupe « {name} »', { name: grp.name }) }, h('span', { class: 'grp-dot' }), grp.name) : null),
+      h('div', { class: 'name' }, h('span', { class: 'n' }, w.name), statusPill(w), cmsDot(w), w.maintenanceUntil ? maintPill(w, true) : null, grp ? h('span', { class: 'gchip', style: `--gc:${grp.color}`, title: tr('Groupe « {name} »', { name: grp.name }) }, h('span', { class: 'grp-dot' }), grp.name) : null),
       top ? h('div', { class: `issue ${top.severity === 'warning' ? 'warn' : ''}` }, top.title) : h('div', { class: 'url' }, host(w.url) + (w.tags.length ? '  ·  ' + w.tags.join(', ') : '')))),
     h('div', { class: 'sigs' }, ...signalChips(w)),
     h('div', { class: 'spark-col' }, w.mode === 'domain' ? h('div', { class: 'spark-empty' }, tr('DNS + registre')) : spark(w.spark)),

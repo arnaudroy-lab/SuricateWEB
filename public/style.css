@@ -253,6 +253,8 @@ textarea.input { height: auto; min-height: 84px; padding: 10px 12px; resize: ver
 .id .issue { color: var(--crit); font-size: 12.5px; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .id .issue.warn { color: var(--warn); }
 .sigs { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Pastille CMS compacte de la ligne du nom : seulement quand la colonne des indicateurs est masquée (≤ 1100 px), comme dans la règle ci-dessous. */
+.cms-narrow { display: none; }
 .spark { display: block; width: 120px; height: 30px; }
 /* Texte à la place de la courbe : centré verticalement même quand il passe sur 2 lignes (2 × 15 px = la hauteur de 30 px). */
 .spark-empty { display: flex; align-items: center; width: 120px; height: 30px; font-size: 12px; line-height: 15px; color: var(--muted); }
@@ -709,6 +711,7 @@ textarea.input { height: auto; }
   .ov-top .kpis { grid-template-columns: repeat(4, 1fr); }
   .site { grid-template-columns: minmax(200px, 1.6fr) 120px 100px 40px; }
   .site .sigs, .site .col-metric { display: none; }
+  .cms-narrow { display: inline-flex; }
 }
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; padding: 0; }

@@ -928,5 +928,14 @@
  "Widget du tableau de bord": "Dashboard widget",
  "Relié": "Linked",
  "Non relié": "Not linked",
- "Documentation": "Documentation"
+ "Documentation": "Documentation",
+ "en attente": "pending",
+ "{kind} : aucun relevé du plugin pour le moment. Installez le plugin, collez le jeton dans ses réglages, puis actualisez.": "{kind}: no plugin reading yet. Install the plugin, paste the token in its settings, then refresh.",
+ "non joint": "unreachable",
+ "{kind} : le dernier relevé a échoué ({error}).": "{kind}: the last reading failed ({error}).",
+ "erreur inconnue": "unknown error",
+ "Dernière version du plugin connue : {version}.": "Last known plugin version: {version}.",
+ "{kind} connecté. Plugin {version} installé, {latest} disponible : mettez-le à jour (fiche du site › Mises à jour).": "{kind} connected. Plugin {version} installed, {latest} available: update it (site page › Updates).",
+ "{kind} connecté · plugin {version} (à jour) · relevé {rel}": "{kind} connected · plugin {version} (up to date) · read {rel}",
+ "{kind} connecté · version du plugin inconnue (plugin très ancien : mettez-le à jour) · relevé {rel}": "{kind} connected · plugin version unknown (very old plugin: update it) · read {rel}"
 }

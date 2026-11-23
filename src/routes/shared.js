@@ -5,7 +5,7 @@ import { getExtensions } from '../extensions.js';
 import { randomBytes } from 'node:crypto';
 import { settingsFor, statusTokenInUse, getWatch, updateWatch, normalizeConfig, defaultConfig, DEFAULT_KEYWORDS, uptimeBetween, DAY_MS } from '../db.js';
 import { isRunning } from '../scheduler.js';
-import { cmsConfigError } from '../cms.js';
+import { cmsConfigError, cmsLinkOf } from '../cms.js';
 import { resolvePage } from '../pages.js';
 import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
@@ -138,6 +138,8 @@ export async function summarize(w, ctx) {
     uptime30: domainOnly ? null : (await uptimeBetween(w, now - 30 * DAY_MS, now, now)).uptime,
     tlsExpires: w.state.tls?.expires || null, domainExpires: w.state.rdap?.expires || null,
     maintenanceUntil: ctx.maint?.get(w.id)?.end ?? null,
+    // Lien avec le CMS (WordPress / PrestaShop) : connecté ou non, version du plugin installé, mise à jour du plugin disponible ; null sans CMS.
+    cmsLink: (() => { const l = cmsLinkOf(w); return l ? { ...l, error: l.error ? retranslate(l.error) : null } : null; })(),
   };
 }
 
