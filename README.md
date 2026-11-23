@@ -5,6 +5,8 @@
 
 # SuricateWeb
 
+> 📖 **Documentation en ligne** (français et anglais) : <https://docs.suricateweb.fr>
+
 Surveillance de sites web pour webmasters : **détecter un piratage, une défiguration, un remplacement ou un transfert de domaine sans ouvrir le site**, et être alerté sur **Telegram**.
 
 Inspiré de [changedetection.io](https://github.com/dgtlmoon/changedetection.io), mais pensé pour la sécurité plutôt que pour le suivi de prix : en plus du contenu, SuricateWeb surveille ce qui change quand un site est compromis.
@@ -76,7 +78,9 @@ L'interface suit le thème du système (bouton lune / soleil dans la barre laté
 
 ### Barre latérale
 
-Sous le nom **SuricateWeb**, la **version de l'application** (lue dans `package.json`). En bas, à côté du thème et de la déconnexion : un lien vers le **dépôt GitHub** et un lien vers la **documentation** (ce README). Ces liens s'ouvrent dans un nouvel onglet ; ils proviennent des champs `repository` et `homepage` de `package.json`, et disparaissent s'ils n'y sont pas renseignés.
+Sous le nom **SuricateWeb**, la **version de l'application** (lue dans `package.json`). En bas, à côté du thème et de la déconnexion : un lien vers le **dépôt GitHub** et un lien vers la **documentation en ligne** ([docs.suricateweb.fr](https://docs.suricateweb.fr)). Ces liens s'ouvrent dans un nouvel onglet ; ils proviennent de `package.json`, et disparaissent s'ils n'y sont pas renseignés.
+
+Le lien de documentation suit la **langue de l'interface** : la racine du site en français, `/en/` en anglais. Il vient du champ `docs` de `package.json` (`url` du site et `languages` qu'il propose : le français à la racine, les autres sous `/<langue>/`). Sans ce champ, il retombe sur `homepage`, puis sur le README du dépôt, et n'ajoute alors aucune langue : un **fork** qui publie sa propre documentation modifie `docs` (ou le retire) sans toucher au code.
 
 ## Démarrage
 

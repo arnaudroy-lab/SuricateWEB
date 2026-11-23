@@ -2,7 +2,7 @@
 
 import { buildModel, moveSite, moveGroup, stepSite, stepGroup, sameModel, toPayload, applyModel, describeMove } from './layout.js';
 import { qrPath } from './qr.js';
-import { tr, plural, isOne, lang, locale, LANGS, setLang, hasChoice } from './i18n.js';
+import { tr, plural, isOne, lang, locale, LANGS, setLang, hasChoice, docsHref } from './i18n.js';
 
 // ───────────── Utilitaires DOM ─────────────
 const $ = (s, el = document) => el.querySelector(s);
@@ -321,7 +321,7 @@ function mountShell() {
           h('div', { class: 'side-actions' },
             // Liens externes : nouvel onglet, sans transmettre l'adresse de cette page (noopener, noreferrer)
             app.repoUrl ? h('a', { class: 'btn ghost icon sm ext', href: app.repoUrl, target: '_blank', rel: 'noopener noreferrer', title: tr('Dépôt GitHub'), 'aria-label': tr('Dépôt GitHub (nouvel onglet)') }, ic('github')) : null,
-            app.docsUrl ? h('a', { class: 'btn ghost icon sm ext', href: app.docsUrl, target: '_blank', rel: 'noopener noreferrer', title: tr('Documentation (README)'), 'aria-label': tr('Documentation (nouvel onglet)') }, ic('book')) : null,
+            app.docsUrl ? h('a', { class: 'btn ghost icon sm ext', href: docsHref(app), target: '_blank', rel: 'noopener noreferrer', title: app.docsLangs?.length ? tr('Documentation') : tr('Documentation (README)'), 'aria-label': tr('Documentation (nouvel onglet)') }, ic('book')) : null,
             h('button', { class: 'btn ghost icon sm', title: tr('Changer de thème'), 'aria-label': tr('Changer de thème'), onclick: toggleTheme }, ic(isDark() ? 'sun' : 'moon')),
             S.auth?.required ? h('button', { class: 'btn ghost icon sm', title: tr('Se déconnecter'), 'aria-label': tr('Se déconnecter'), onclick: guard(async () => { await api('/logout', { method: 'POST' }); S.auth.authenticated = false; boot(); }) }, ic('logout')) : null))),
       h('main', { class: 'main', id: 'view' })));

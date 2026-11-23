@@ -109,7 +109,12 @@ export function createApp({
     return /^https?:\/\//.test(clean) ? clean : null; // seul http(s) : jamais de « javascript: » dans un lien
   };
   const repoUrl = webUrl(pkg.repository?.url ?? pkg.repository);
-  const info = { version: String(pkg.version ?? ''), repoUrl, docsUrl: webUrl(pkg.homepage) ?? (repoUrl ? `${repoUrl}#readme` : null) };
+  // Documentation : le site publié (package.json › docs.url) et les langues qu'il propose (le français à la racine, les autres sous /<langue>/) ;
+  // à défaut, la page d'accueil du projet, puis le README du dépôt. Un fork qui change `docs` ou `homepage` n'a rien d'autre à modifier.
+  const docs = pkg.docs && typeof pkg.docs === 'object' ? pkg.docs : {};
+  const docsBase = webUrl(docs.url)?.replace(/\/+$/, '') ?? null;
+  const docsLangs = docsBase && Array.isArray(docs.languages) ? docs.languages.filter((l) => typeof l === 'string' && /^[a-z]{2}$/.test(l)) : [];
+  const info = { version: String(pkg.version ?? ''), repoUrl, docsUrl: docsBase ?? webUrl(pkg.homepage) ?? (repoUrl ? `${repoUrl}#readme` : null), docsLangs };
 
   // Derrière un reverse proxy (Dokploy/Traefik, nginx…) : TRUST_PROXY=1 active la lecture de X-Forwarded-*.
   const trustProxy = /^(1|true|yes)$/i.test(env.TRUST_PROXY || '');

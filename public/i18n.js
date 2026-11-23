@@ -41,6 +41,16 @@ if (lang !== 'fr' && typeof fetch === 'function' && globalThis.location) {
 }
 if (globalThis.document) document.documentElement.lang = lang;
 
+/**
+ * Adresse de la documentation dans la langue de l'interface. `app` : { docsUrl, docsLangs } de /api/settings. Le site de documentation a le français à la
+ * racine et chaque autre langue sous /<langue>/ ; une adresse qui ne déclare aucune langue (README du dépôt, site d'un fork) est ouverte telle quelle.
+ */
+export function docsHref(app, language = lang) {
+  const base = app?.docsUrl;
+  if (!base) return null;
+  return language !== 'fr' && Array.isArray(app.docsLangs) && app.docsLangs.includes(language) ? `${base.replace(/\/+$/, '')}/${language}/` : base;
+}
+
 /** Traduit un texte français ; `params` remplace les {nom}. */
 export function tr(text, params) {
   const out = lang === 'fr' ? text : (dict[text] ?? text);
