@@ -329,5 +329,9 @@
  "RÉTABLI": "RECOVERED",
  "Ouvrir dans SuricateWeb": "Open in SuricateWeb",
  "✓ Marquer comme lu": "✓ Mark as read",
- "Langue inconnue": "Unknown language"
+ "Langue inconnue": "Unknown language",
+ "L'apparence de la page a changé ({pct} %)": "The page's appearance has changed ({pct} %)",
+ "{pct} % de la page est différent de la capture du {date}.": "{pct} % of the page differs from the screenshot of {date}.",
+ "📸 {name} — apparence modifiée ({pct} %)": "📸 {name} — appearance changed ({pct} %)",
+ "Aucune différence enregistrée pour cette capture": "No difference recorded for this screenshot"
 }

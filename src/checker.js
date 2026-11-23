@@ -808,11 +808,38 @@ async function runCheckNow(id) {
   return { code, ms, error, alerts, photo };
 }
 
+/**
+ * Alerte « l'apparence de la page a changé » : une capture planifiée diffère de la précédente d'au moins le seuil du site (voir screenshot.js).
+ * Gravité : critique si plus de la moitié de la page a changé (page remplacée), sinon avertissement. Retenue pendant une maintenance, comme les
+ * autres alertes. Le message Telegram (et celui des autres canaux) est suivi de l'image des zones modifiées. Texte dans la langue du compte.
+ * @returns {Promise<{ id: number, severity: string, held: boolean }>}
+ */
+export async function raiseVisualAlert(w, { pct, prevTs, image = null }) {
+  const settings = await settingsFor(w.accountId);
+  return runWithLang(settings.language, async () => {
+    const maint = await activeMaintenance(w.id);
+    const severity = pct >= 50 ? 'critical' : 'warning';
+    const shown = pct.toLocaleString(currentLocale(), { maximumFractionDigits: 1 });
+    const alert = {
+      severity, type: 'visual_changed', maintenance: !!maint,
+      title: tr('L\'apparence de la page a changé ({pct} %)', { pct: shown }),
+      detail: tr('{pct} % de la page est différent de la capture du {date}.', { pct: shown, date: new Date(prevTs).toLocaleString(currentLocale(), { dateStyle: 'short', timeStyle: 'short' }) }),
+    };
+    alert.id = await insertAlert({ watchId: w.id, ...alert });
+    if (!maint) {
+      const { photo } = await notify(w, [alert], settings, { photo: image ? { image, caption: tr('📸 {name} — apparence modifiée ({pct} %)', { name: w.name, pct: shown }) } : null });
+      await photo; // hors d'un contrôle : rien ne presse, on attend que l'image soit partie
+    }
+    bus.emit('event', { type: 'check', watchId: w.id, alerts: 1 });
+    return { id: alert.id, severity, held: !!maint };
+  });
+}
+
 /** Alertes dont la gravité se voit sur la page : une capture d'écran de l'état actuel les accompagne. */
 const VISUAL = new Set(['content_changed', 'size_collapse', 'forbidden', 'required', 'script_added', 'script_suspect', 'iframe_added', 'form_hijacked', 'meta_refresh', 'redirect_domain']);
 
 /** Retourne { photo } : la promesse de l'envoi de la capture (non attendue par le contrôle, qui ne doit pas ralentir). */
-async function notify(w, alerts, settings) {
+async function notify(w, alerts, settings, { photo: given = null } = {}) {
   if (!alerts.length || !w.config.notify) return {};
   // Quels canaux reçoivent ces alertes ? Par défaut, Telegram (réglages) ; la version hébergée en ajoute (src/extensions.js).
   const channels = await getExtensions().notifier.resolveChannels(w, alerts, settings);
@@ -835,6 +862,13 @@ async function notify(w, alerts, settings) {
   const failed = new Map(); // message d'erreur → alertes
   for (const [id, err] of outcome) if (err !== null) failed.set(err, [...(failed.get(err) ?? []), id]);
   for (const [err, ids] of failed) await markNotified(ids, err);
+
+  // Photo déjà prête (changement d'apparence : l'image des zones modifiées) : envoyée aux canaux qui savent en recevoir, sans nouvelle capture.
+  if (given?.image) {
+    const targets = reached.filter(({ channel }) => channel.wantsPhoto && channel.sendPhoto);
+    const sending = (async () => { for (const { channel } of targets) await channel.sendPhoto(given.image, given.caption).catch((e) => console.error(`[${channel.type}] photo ${w.name}: ${e.message}`)); })();
+    return { photo: sending };
+  }
 
   // Une photo vaut mieux qu'un long message : le pirate a-t-il remplacé la page ? On le voit d'un coup d'œil, depuis le téléphone.
   const photoTargets = reached.filter(({ channel, eligible }) => channel.wantsPhoto && channel.sendPhoto

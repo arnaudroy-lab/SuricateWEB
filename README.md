@@ -237,6 +237,16 @@ SuricateWeb prend une photo de chaque site à intervalle régulier (**toutes les
 
 Le navigateur est piloté directement par le protocole DevTools de Chrome : **aucune dépendance npm**. Il faut Chrome, Chromium, Edge ou Brave sur le serveur (détecté automatiquement, ou `CHROME_PATH`) ; l'image Docker embarque Chromium. Sans navigateur, tout le reste fonctionne et l'interface l'indique. Pour garder Chrome hors du serveur, `CHROME_WS_URL` pointe vers un Chrome déjà lancé ailleurs (conteneur Browserless, `chromedp/headless-shell`…) : chaque capture y ouvre un contexte isolé, détruit ensuite.
 
+### Alerte si l'apparence change
+
+*Modifier › Capture d'écran › Alerter si l'apparence change* : chaque capture **planifiée** est comparée à la précédente, pixel par pixel, **dans le Chrome qui vient de la prendre** (aucune dépendance : le navigateur sait décoder les images). Les deux images sont ramenées à une largeur commune (640 px) ; un point compte comme modifié si un canal de couleur s'écarte de plus de la **tolérance** (32 sur 255 par défaut : elle absorbe le bruit de compression JPEG), ou si l'une des pages n'a rien à cet endroit (page plus longue ou plus courte).
+
+- **Seuil d'alerte** : part de la page qui doit avoir changé (10 % par défaut). Une alerte « L'apparence de la page a changé (n %) » est créée, **critique au-delà de la moitié de la page** (page remplacée), sinon avertissement. Elle part sur **Telegram suivie de l'image des zones modifiées** (la page estompée, le changé en rouge), comme sur les autres canaux qui reçoivent des photos. Elle est retenue pendant une maintenance, comme les autres.
+- **Éléments à ignorer** : sélecteurs CSS (horloge, carrousel, publicité) masqués sur les captures pour ne pas déclencher d'alerte à chaque passage. Un sélecteur invalide est sans effet.
+- **Rien n'est comparé la première fois** : ni la toute première capture, ni la suivante (la précédente n'a pas été prise avec les mêmes réglages) ; l'alerte ne vaut que pour les captures planifiées, jamais pour une capture manuelle ou d'alerte.
+- L'onglet **Captures** affiche sur chaque capture comparée un repère « Δ n % », et la visionneuse un bouton **Différence** (image des zones modifiées). Les images de différence suivent la rétention de leur capture.
+- Comparer coûte quelques secondes de plus que la capture seule (décodage et comparaison dans Chrome) ; seul un site qui active l'option les paie.
+
 Chaque capture lance un navigateur neuf avec un profil jetable, puis le détruit : pas de cookies qui s'accumulent, pas de processus orphelin. Les fenêtres `alert()` sont ignorées. **La page est réellement exécutée** (JavaScript compris) : si un site est piraté, son code malveillant s'exécute dans ce navigateur. Il tourne dans le conteneur, sous un utilisateur sans privilèges, et ne conserve rien après la capture. Dans Docker, le bac à sable interne de Chrome est désactivé (`--no-sandbox`, impossible sans privilèges) : l'isolation est celle du conteneur. Si ce risque ne vous convient pas, désactivez les captures site par site (*Modifier › Capture d'écran*).
 
 ## Groupes de sites

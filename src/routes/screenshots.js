@@ -6,6 +6,7 @@ import { listScreenshots, screenshotStats, settingsFor, SHOTS_DIR } from '../db.
 import { captureWatch, isCapturing, engine, shotLimits, NO_CHROME, NOT_IN_PLAN } from '../screenshot.js';
 import { clamp } from '../util.js';
 import { loadWatch } from './shared.js';
+import { tr } from '../i18n.js';
 
 export default function register({ route }) {
   route('GET', '/api/watches/:id/screenshots', async (ctx) => {
@@ -20,7 +21,9 @@ export default function register({ route }) {
       nextShot: w.nextShot,
       error: w.shotError,
       capturing: isCapturing(w.id),
-      items: await listScreenshots(w.id, clamp(ctx.query.get('limit'), 1, 500, 200)),
+      compare: w.config.screenshot.compare?.enabled === true,
+      // diffPct : part de la page qui a changé depuis la capture précédente (null : pas comparée) ; hasDiff : l'image des zones modifiées existe.
+      items: (await listScreenshots(w.id, clamp(ctx.query.get('limit'), 1, 500, 200))).map(({ diffFile, ...i }) => ({ ...i, hasDiff: !!diffFile })),
     };
   }, { perm: 'site:read' });
 
@@ -38,7 +41,10 @@ export default function register({ route }) {
   route('GET', '/api/screenshots/:id/image', async (ctx) => {
     const s = await ctx.data.getScreenshot(Number(ctx.params.id));
     if (!s) throw new HttpError(404, 'Capture introuvable (supprimée par la rétention ?)');
-    const buf = await readFile(join(SHOTS_DIR, ctx.query.get('thumb') && s.thumb ? s.thumb : s.file)).catch(() => null);
+    // ?diff=1 : l'image des zones modifiées par rapport à la capture précédente (si elle a été comparée) ; ?thumb=1 : la miniature.
+    const wanted = ctx.query.get('diff') ? s.diff_file : ctx.query.get('thumb') && s.thumb ? s.thumb : s.file;
+    if (!wanted) throw new HttpError(404, tr('Aucune différence enregistrée pour cette capture'));
+    const buf = await readFile(join(SHOTS_DIR, wanted)).catch(() => null);
     if (!buf) throw new HttpError(404, 'Fichier de capture introuvable');
     ctx.res.writeHead(200, {
       'content-type': 'image/jpeg', 'content-length': buf.length, 'x-content-type-options': 'nosniff',

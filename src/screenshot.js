@@ -5,11 +5,11 @@
 // au lieu d'en lancer un. Chrome vit alors hors du serveur, sans accès à sa base ni à ses secrets.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm, mkdir, writeFile, unlink, readdir, access } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, unlink, readdir, access, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getExtensions } from './extensions.js';
-import { getWatch, listWatches, settingsFor, SHOTS_DIR, insertScreenshot, setShotState, screenshotsToPrune, deleteScreenshotRows, screenshotRowsAfter } from './db.js';
+import { getWatch, listWatches, settingsFor, SHOTS_DIR, insertScreenshot, setShotState, screenshotsToPrune, deleteScreenshotRows, screenshotRowsAfter, previousScreenshot, setScreenshotDiff } from './db.js';
 import { bus } from './events.js';
 
 const CANDIDATES = [
@@ -192,7 +192,39 @@ const scrollThroughScript = (limit) => `(async () => {
  * `guard` : garde réseau (src/net-guard.js). Active, elle vérifie l'adresse AVANT de lancer Chrome, puis chaque requête de la page
  * (redirections, images, scripts, iframes…) : Chrome ne doit atteindre aucun réseau interne, même par un élément de la page.
  */
-export async function capture(url, { width = 1280, height = 800, fullPage = false, timeoutMs = 30000, settleMs = 3000, interact = true, hideBanners = true, quality = 72, headers, userAgent, guard } = {}) {
+/**
+ * Comparaison de deux captures, exécutée DANS Chrome (sur about:blank) : il sait décoder les JPEG, le cœur n'a aucune dépendance.
+ * Les deux images sont ramenées à une largeur commune (640 px au plus : on compare l'apparence, pas les pixels d'origine), posées sur
+ * un même canevas, puis comparées pixel par pixel. Un pixel est « changé » si un canal s'écarte de plus de `tolerance` (0-255), ou si
+ * l'un des deux n'a pas de contenu à cet endroit (page plus longue ou plus courte). Renvoie la part changée (%) et la capture récente
+ * assombrie, avec les zones changées en rouge.
+ */
+export const DIFF_FN = `async (aB64, bB64, tolerance, maxW) => {
+  const load = (b64) => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('image illisible')); i.src = 'data:image/jpeg;base64,' + b64; });
+  const [A, B] = await Promise.all([load(aB64), load(bB64)]);
+  const W = Math.max(1, Math.min(maxW, Math.max(A.naturalWidth, B.naturalWidth)));
+  const hOf = (i) => Math.max(1, Math.round(i.naturalHeight * W / i.naturalWidth));
+  const H = Math.max(hOf(A), hOf(B));
+  const pixels = (img) => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, W, hOf(img)); return x.getImageData(0, 0, W, H).data; };
+  const a = pixels(A), b = pixels(B);
+  const overlay = new ImageData(W, H);
+  let changed = 0;
+  for (let p = 0, n = W * H * 4; p < n; p += 4) {
+    let diff = a[p + 3] !== b[p + 3]; // une image n'a rien ici : la page a changé de longueur
+    if (!diff && a[p + 3] !== 0) diff = Math.abs(a[p] - b[p]) > tolerance || Math.abs(a[p + 1] - b[p + 1]) > tolerance || Math.abs(a[p + 2] - b[p + 2]) > tolerance;
+    if (diff) { changed++; overlay.data[p] = 255; overlay.data[p + 1] = 40; overlay.data[p + 2] = 40; overlay.data[p + 3] = 210; }
+  }
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const o = out.getContext('2d');
+  o.fillStyle = '#fff'; o.fillRect(0, 0, W, H);
+  o.drawImage(B, 0, 0, W, hOf(B));
+  o.fillStyle = 'rgba(255,255,255,.55)'; o.fillRect(0, 0, W, H); // la page, estompée : les zones rouges ressortent
+  const layer = document.createElement('canvas'); layer.width = W; layer.height = H; layer.getContext('2d').putImageData(overlay, 0, 0);
+  o.drawImage(layer, 0, 0);
+  return { pct: Math.round(changed * 1000 / (W * H)) / 10, changed, total: W * H, width: W, height: H, image: out.toDataURL('image/jpeg', 0.62).split(',')[1] };
+}`;
+
+export async function capture(url, { width = 1280, height = 800, fullPage = false, timeoutMs = 30000, settleMs = 3000, interact = true, hideBanners = true, quality = 72, headers, userAgent, guard, compareWith = null, tolerance = 32, ignore = [] } = {}) {
   const remote = remoteEndpoint();
   const bin = remote ? null : chromePath();
   if (!remote && !bin) throw new Error(NO_CHROME);
@@ -345,6 +377,12 @@ export async function capture(url, { width = 1280, height = 800, fullPage = fals
     await sleep(settleMs); // animations d'entrée, fondus, sliders
     await networkIdle(500, 4000);
 
+    // Éléments à ignorer (horloge, carrousel, publicité) : masqués avant la capture, pour qu'ils ne comptent pas dans la comparaison.
+    // Chaque sélecteur a son propre essai : un sélecteur invalide n'empêche pas les autres.
+    if (ignore.length) {
+      await S('Runtime.evaluate', { expression: `${JSON.stringify(ignore)}.forEach((s) => { try { document.querySelectorAll(s).forEach((e) => e.style.setProperty('visibility', 'hidden', 'important')); } catch { /* sélecteur invalide */ } })` }).catch(() => {});
+    }
+
     let clip;
     if (fullPage) {
       const m = await S('Page.getLayoutMetrics');
@@ -356,7 +394,18 @@ export async function capture(url, { width = 1280, height = 800, fullPage = fals
     const shot = await S('Page.captureScreenshot', { format: 'jpeg', quality, ...(clip ? { clip, captureBeyondViewport: true } : {}) });
     // Miniature : le haut de la page, réduite (≈ 10 Ko) pour que le tableau de bord reste léger.
     const small = await S('Page.captureScreenshot', { format: 'jpeg', quality: 60, clip: { x: 0, y: 0, width, height, scale: 360 / width } });
+    // Comparaison avec la capture précédente : dans le même Chrome, sur une page vide (aucune règle de sécurité du site surveillé n'y joue).
+    let diff = null;
+    if (compareWith) {
+      try {
+        await S('Page.navigate', { url: 'about:blank' });
+        const r = await withTimeout(S('Runtime.evaluate', { expression: `(${DIFF_FN})(${JSON.stringify(compareWith.toString('base64'))}, ${JSON.stringify(shot.data)}, ${Math.round(tolerance)}, 640)`, awaitPromise: true, returnByValue: true }), 25000);
+        const v = r?.result?.value;
+        if (v && Number.isFinite(v.pct)) diff = { pct: v.pct, image: Buffer.from(v.image, 'base64') };
+      } catch { /* comparaison impossible : la capture, elle, est bonne */ }
+    }
     return {
+      diff,
       image: Buffer.from(shot.data, 'base64'),
       thumb: Buffer.from(small.data, 'base64'),
       finalUrl: String(where?.u || '').slice(0, 500) || null,
@@ -444,7 +493,12 @@ async function doCapture(id, kind) {
   const now = Date.now();
   try {
     if (!engine.available()) throw new Error(NO_CHROME);
+    // Comparaison avec la capture précédente (réglage du site) : l'image précédente part avec la demande, Chrome compare dans la même session.
+    const cmp = sc.compare?.enabled ? sc.compare : null;
+    const prev = cmp ? await previousScreenshot(id) : null;
+    const prevImage = prev ? await readFile(join(SHOTS_DIR, prev.file)).catch(() => null) : null;
     const r = await queued(() => engine.capture(w.url, {
+      ...(cmp ? { ignore: cmp.ignore, tolerance: cmp.tolerance, ...(prevImage ? { compareWith: prevImage } : {}) } : {}),
       width: sc.width, height: sc.height, fullPage: sc.fullPage,
       settleMs: sc.delay * 1000, interact: sc.interact, hideBanners: sc.hideBanners,
       timeoutMs: Math.max(20, w.config.timeoutS) * 1000, headers: w.config.headers, userAgent: w.config.userAgent || undefined,
@@ -457,6 +511,18 @@ async function doCapture(id, kind) {
     await writeFile(join(SHOTS_DIR, file), r.image);
     if (thumb) await writeFile(join(SHOTS_DIR, thumb), r.thumb);
     const shotId = await insertScreenshot({ watchId: id, ts: now, kind, file, thumb, size: r.image.length, width: r.width, height: r.height, finalUrl: r.finalUrl, title: r.title });
+    // Différence mesurée : gardée avec la capture (badge et image dans la fiche) ; une alerte si elle atteint le seuil du site.
+    if (cmp && prev && r.diff) {
+      const diffFile = r.diff.pct > 0 ? `${id}/${now}.d.jpg` : null;
+      if (diffFile) await writeFile(join(SHOTS_DIR, diffFile), r.diff.image);
+      await setScreenshotDiff(shotId, { pct: r.diff.pct, file: diffFile, vs: prev.id });
+      // Pas d'alerte sur la toute première comparaison (la précédente n'a pas été prise avec les mêmes réglages : zones ignorées) ni sur une
+      // capture manuelle ou d'alerte, qui ne reflète pas un passage régulier du site.
+      if (kind === 'scheduled' && r.diff.pct >= cmp.minPct && prev.diffPct != null) {
+        const { raiseVisualAlert } = await import('./checker.js');
+        await raiseVisualAlert(w, { pct: r.diff.pct, prevTs: prev.ts, image: r.diff.image }).catch((e) => console.error(`[capture] alerte d'apparence ${w.name} : ${e.message}`));
+      }
+    }
     await setShotState(id, { nextShot: now + sc.interval * 60e3, error: null });
     await pruneWatchShots(id);
     bus.emit('event', { type: 'shot', watchId: id });
@@ -488,7 +554,7 @@ export async function pruneWatchShots(id) {
   const rows = await screenshotsToPrune(id, keep, keepOther);
   if (!rows.length) return 0;
   await deleteScreenshotRows(rows.map((r) => r.id));
-  for (const r of rows) for (const f of [r.file, r.thumb]) if (f) await unlink(join(SHOTS_DIR, f)).catch(() => {});
+  for (const r of rows) for (const f of [r.file, r.thumb, r.diffFile]) if (f) await unlink(join(SHOTS_DIR, f)).catch(() => {});
   return rows.length;
 }
 

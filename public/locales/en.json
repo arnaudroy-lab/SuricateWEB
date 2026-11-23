@@ -848,5 +848,17 @@
  ".horloge, #bandeau-cookies, .pub": ".clock, #cookie-banner, .ad",
  "/panier | Panier\n/contact\n/mon-compte | Connexion": "/cart | Cart\n/contact\n/my-account | Login",
  "Notifications": "Notifications",
- "Partages": "Sharing"
+ "Partages": "Sharing",
+ "Part de la page qui a changé depuis la capture précédente": "Share of the page that changed since the previous screenshot",
+ "Zones modifiées par rapport à la capture précédente (en rouge)": "Areas changed since the previous screenshot (in red)",
+ "Différence": "Difference",
+ ".carrousel, #horloge, .bandeau-pub": ".carousel, #clock, .ad-banner",
+ "Alerter si l'apparence change": "Alert if the appearance changes",
+ "Chaque capture planifiée est comparée à la précédente : une alerte (Telegram comprise, avec l'image des zones modifiées) part si la part de la page qui a changé atteint le seuil.": "Each scheduled screenshot is compared with the previous one: an alert (Telegram included, with the image of the changed areas) is sent if the share of the page that changed reaches the threshold.",
+ "Seuil d'alerte (% de la page)": "Alert threshold (% of the page)",
+ "Au-delà de la moitié de la page, l'alerte est critique.": "Beyond half of the page, the alert is critical.",
+ "Tolérance de couleur": "Colour tolerance",
+ "Écart (0-255) sous lequel un point est considéré comme inchangé : évite les fausses alertes dues à la compression.": "Difference (0-255) below which a point is considered unchanged: avoids false alarms caused by compression.",
+ "Éléments à ignorer (sélecteurs CSS)": "Elements to ignore (CSS selectors)",
+ "Un par ligne : horloge, carrousel, publicité… Ils sont masqués sur les captures.": "One per line: clock, carousel, advertising… They are hidden on screenshots."
 }

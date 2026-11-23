@@ -2,5 +2,6 @@
 // Les migrations d'une extension (src/store/registry.js) portent des numéros à partir de 1000 : jamais de collision avec le cœur.
 import m0001 from './0001-initial.js';
 import m0002 from './0002-accounts.js';
+import m0003 from './0003-shot-diff.js';
 
-export const MIGRATIONS = [m0001, m0002];
+export const MIGRATIONS = [m0001, m0002, m0003];

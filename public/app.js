@@ -1158,6 +1158,7 @@ function responseChart(checks, { daily = false, agg = false } = {}) {
 const SHOT_KIND = { scheduled: [tr('Planifiée'), ''], manual: [tr('Manuelle'), 'info'], alert: [tr('Alerte'), 'crit'] };
 // L'image est mise en cache un an : la date de capture fait partie de l'adresse, pour qu'un numéro de capture réutilisé
 // (base recréée, volume réinitialisé) ne ressorte jamais l'image d'un autre site depuis le cache du navigateur.
+const diffUrl = (s) => `/api/screenshots/${s.id}/image?diff=1&v=${s.ts}`;
 const shotUrl = (s, thumb) => `/api/screenshots/${s.id}/image?v=${s.ts}${thumb ? '&thumb=1' : ''}`;
 /** Adresse capturée : un nom de domaine différent de celui du site (redirection, page d'hébergeur) est signalé. */
 const shotOffSite = (it, w) => { try { return !!it.finalUrl && host(it.finalUrl) !== host(w.url) && !host(it.finalUrl).endsWith(`.${host(w.url)}`) && !host(w.url).endsWith(`.${host(it.finalUrl)}`); } catch { return false; } };
@@ -1230,21 +1231,28 @@ async function capturesTab(w) {
     const [label, cls] = SHOT_KIND[it.kind] || SHOT_KIND.scheduled;
     return h('button', { class: 'shot', onclick: () => openLightbox(d.items, i, w), 'aria-label': tr('Capture du {dt}', { dt: dt(it.ts) }) },
       h('img', { src: shotUrl(it, true), loading: 'lazy', alt: '' }),
-      h('div', { class: 'shot-meta', title: it.finalUrl ? `${it.finalUrl}${it.title ? ` — ${it.title}` : ''}` : '' }, h('b', {}, dt(it.ts)), shotOffSite(it, w) ? h('span', { class: 'pill warn' }, tr('Autre domaine')) : null, cls ? h('span', { class: `pill ${cls}` }, label) : h('span', { class: 'muted' }, rel(it.ts))));
+      h('div', { class: 'shot-meta', title: it.finalUrl ? `${it.finalUrl}${it.title ? ` — ${it.title}` : ''}` : '' }, h('b', {}, dt(it.ts)), shotOffSite(it, w) ? h('span', { class: 'pill warn' }, tr('Autre domaine')) : null, diffPill(it), cls ? h('span', { class: `pill ${cls}` }, label) : h('span', { class: 'muted' }, rel(it.ts))));
   })));
   return root;
 }
+
+/** « Δ 12 % » : part de la page qui a changé depuis la capture précédente (seulement si le site compare ses captures). */
+const diffPill = (it) => (it.diffPct == null ? null
+  : h('span', { class: `pill ${it.diffPct >= 50 ? 'crit' : it.diffPct >= 5 ? 'warn' : 'mute'}`, title: tr('Part de la page qui a changé depuis la capture précédente') }, `Δ ${fmtPctShort(it.diffPct)}`));
+const fmtPctShort = (n) => `${(Math.round(n * 10) / 10).toString().replace('.', DEC)} %`;
 
 /** Visionneuse : navigation ←/→ entre les captures, et comparaison côte à côte « avant / après ». */
 function openLightbox(items, start, w) {
   if (!items.length) return;
   let i = start;
   let compare = false;
+  let showDiff = false;
   const stage = h('div', { class: 'lb-stage' });
   const title = h('div', { class: 'lb-title' });
   const older = h('button', { class: 'btn sm', onclick: () => go(i + 1), title: tr('Capture plus ancienne (←)') }, ic('back'), tr('Plus ancienne'));
   const newer = h('button', { class: 'btn sm', onclick: () => go(i - 1), title: tr('Capture plus récente (→)') }, tr('Plus récente'), ic('right'));
-  const cmp = h('button', { class: 'btn sm', onclick: () => { compare = !compare; render(); }, title: tr('Comparer avec la capture précédente') }, ic('columns'), tr('Comparer'));
+  const cmp = h('button', { class: 'btn sm', onclick: () => { compare = !compare; showDiff = false; render(); }, title: tr('Comparer avec la capture précédente') }, ic('columns'), tr('Comparer'));
+  const dif = h('button', { class: 'btn sm', onclick: () => { showDiff = !showDiff; compare = false; render(); }, title: tr('Zones modifiées par rapport à la capture précédente (en rouge)') }, ic('alert'), tr('Différence'));
   const fig = (label, it) => h('figure', {}, label ? h('figcaption', {}, h('b', {}, label), ` · ${dt(it.ts)}`) : null, h('img', { src: shotUrl(it), alt: tr('Capture du {dt}', { dt: dt(it.ts) }) }));
   const go = (n) => { if (n >= 0 && n < items.length) { i = n; render(); } };
   function render() {
@@ -1255,13 +1263,18 @@ function openLightbox(items, start, w) {
     title.replaceChildren(...[h('b', {}, w.name), h('span', {}, `${dt(cur.ts)} · ${rel(cur.ts)}`),
       cur.finalUrl ? h('span', { class: 'muted', title: cur.finalUrl }, `${host(cur.finalUrl)}${cur.title ? ` — « ${cur.title} »` : ''}`) : null, shotOffSite(cur, w) ? h('span', { class: 'pill warn' }, tr('Autre domaine que le site')) : null, cls ? h('span', { class: `pill ${cls}` }, label) : null, h('span', { class: 'muted' }, `${i + 1} / ${items.length}`)].filter(Boolean));
     const two = compare && prev;
+    const diff = showDiff && cur.hasDiff;
     stage.className = `lb-stage${two ? ' two' : ''}`;
-    stage.replaceChildren(...(two ? [fig(tr('Avant'), prev), fig(tr('Après'), cur)] : [fig(null, cur)]));
+    stage.replaceChildren(...(two ? [fig(tr('Avant'), prev), fig(tr('Après'), cur)]
+      : diff ? [h('figure', {}, h('figcaption', {}, h('b', {}, tr('Différence')), ` · ${fmtPctShort(cur.diffPct)}`), h('img', { src: diffUrl(cur), alt: tr('Zones modifiées par rapport à la capture précédente (en rouge)') }))]
+        : [fig(null, cur)]));
     stage.scrollTop = 0;
     older.disabled = i >= items.length - 1;
     newer.disabled = i <= 0;
     cmp.disabled = !prev;
     cmp.classList.toggle('on', !!two);
+    dif.hidden = !cur.hasDiff; // seulement si cette capture a été comparée et qu'elle diffère
+    dif.classList.toggle('on', !!diff);
   }
   const close = () => { lb.remove(); document.removeEventListener('keydown', onKey); };
   const onKey = (e) => {
@@ -1270,7 +1283,7 @@ function openLightbox(items, start, w) {
     else if (e.key === 'ArrowRight') go(i - 1);
   };
   const lb = h('div', { class: 'lb', role: 'dialog', 'aria-modal': 'true', 'aria-label': tr('Capture d\'écran'), onclick: (e) => e.target === lb && close() },
-    h('div', { class: 'lb-bar' }, title, h('div', { class: 'lb-actions' }, older, newer, cmp,
+    h('div', { class: 'lb-bar' }, title, h('div', { class: 'lb-actions' }, older, newer, cmp, dif,
       h('a', { class: 'btn sm', href: shotUrl(items[start]), target: '_blank', rel: 'noopener' }, ic('external'), tr('Original')),
       h('button', { class: 'btn sm icon', 'aria-label': tr('Fermer'), onclick: close }, ic('x')))),
     stage);
@@ -1787,6 +1800,10 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     shotDelay: h('select', { class: 'input', value: String(sc.delay) }, ...(SHOT_DELAYS.some(([v]) => v === sc.delay) ? SHOT_DELAYS : [...SHOT_DELAYS, [sc.delay, tr('{delay} secondes', { delay: sc.delay })]]).map(([v, l]) => h('option', { value: String(v) }, l))),
     shotInteract: h('input', { type: 'checkbox', checked: sc.interact }),
     shotBanners: h('input', { type: 'checkbox', checked: sc.hideBanners }),
+    cmpOn: h('input', { type: 'checkbox', checked: sc.compare?.enabled === true }),
+    cmpPct: h('input', { class: 'input', type: 'number', min: 1, max: 100, step: 1, value: sc.compare?.minPct ?? 10 }),
+    cmpTol: h('input', { class: 'input', type: 'number', min: 4, max: 100, step: 1, value: sc.compare?.tolerance ?? 32 }),
+    cmpIgnore: h('textarea', { class: 'input mono', rows: 2, placeholder: tr('.carrousel, #horloge, .bandeau-pub'), value: (sc.compare?.ignore ?? []).join('\n') }),
     timeout: h('input', { class: 'input', type: 'number', min: 3, max: 60, value: c.timeoutS }),
     fails: h('input', { class: 'input', type: 'number', min: 1, max: 10, value: c.failThreshold }),
     minPct: h('input', { class: 'input', type: 'number', min: 0, max: 100, step: 0.5, value: c.minChangePct }),
@@ -1929,6 +1946,12 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
         h('span', { class: 'hint' }, tr('Laisse finir les animations et les sliders. Le réseau et le défilement de la page sont de toute façon attendus avant la capture.'))),
       toggle(f.shotInteract, tr('Simuler un visiteur'), tr('Mouvement de souris et molette, pour réveiller les scripts que certains sites retardent « jusqu\'à la première interaction » (WP Rocket, NitroPack…). Sans cela, un slider ou un menu peut rester vide. Peut compter une visite dans vos statistiques à chaque capture.')),
       toggle(f.shotBanners, tr('Masquer les bandeaux de cookies'), tr('Évite qu\'un bandeau de consentement recouvre la page dans l\'aperçu.')),
+      toggle(f.cmpOn, tr('Alerter si l\'apparence change'), tr('Chaque capture planifiée est comparée à la précédente : une alerte (Telegram comprise, avec l\'image des zones modifiées) part si la part de la page qui a changé atteint le seuil.')),
+      h('div', { class: 'row', style: { marginTop: '12px' } },
+        h('div', { class: 'field' }, h('label', {}, tr('Seuil d\'alerte (% de la page)')), f.cmpPct, h('span', { class: 'hint' }, tr('Au-delà de la moitié de la page, l\'alerte est critique.'))),
+        h('div', { class: 'field' }, h('label', {}, tr('Tolérance de couleur')), f.cmpTol, h('span', { class: 'hint' }, tr('Écart (0-255) sous lequel un point est considéré comme inchangé : évite les fausses alertes dues à la compression.')))),
+      h('div', { class: 'field', style: { marginTop: '12px' } }, h('label', {}, tr('Éléments à ignorer (sélecteurs CSS)')), f.cmpIgnore,
+        h('span', { class: 'hint' }, tr('Un par ligne : horloge, carrousel, publicité… Ils sont masqués sur les captures.'))),
     ], true)),
     siteOnly(details(tr('Filtrer le contenu comparé'), [
       h('div', { class: 'field' }, h('label', {}, tr('Surveiller uniquement cet élément (sélecteur CSS)')), f.selector, h('span', { class: 'hint' }, tr('Vide = toute la page. Les mots-clés de piratage restent vérifiés sur la page entière.'))),
@@ -1961,7 +1984,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
         groupId: f.group.value === '' ? null : Number(f.group.value),
         config: {
           mode,
-          screenshot: { enabled: f.shotOn.checked, interval: Number(f.shotEvery.value), fullPage: f.shotFull.checked, width: Number(f.shotSize.value.split('x')[0]), height: Number(f.shotSize.value.split('x')[1]), delay: Number(f.shotDelay.value), interact: f.shotInteract.checked, hideBanners: f.shotBanners.checked, keep: Number(f.shotKeep.value) },
+          screenshot: { enabled: f.shotOn.checked, interval: Number(f.shotEvery.value), fullPage: f.shotFull.checked, width: Number(f.shotSize.value.split('x')[0]), height: Number(f.shotSize.value.split('x')[1]), delay: Number(f.shotDelay.value), interact: f.shotInteract.checked, hideBanners: f.shotBanners.checked, keep: Number(f.shotKeep.value), compare: { enabled: f.cmpOn.checked, minPct: Number(f.cmpPct.value), tolerance: Number(f.cmpTol.value), ignore: f.cmpIgnore.value.split('\n').map((l) => l.trim()).filter(Boolean) } },
           checks: Object.fromEntries(Object.entries(checks).map(([k, el]) => [k, el.checked])),
           selector: f.selector.value, excludeSelector: f.exclude.value, ignoreRegex: list(f.ignore), images: f.images.checked,
           forbidden: list(f.forbidden), required: list(f.required), userAgent: f.ua.value, timeoutS: Number(f.timeout.value), failThreshold: Number(f.fails.value),

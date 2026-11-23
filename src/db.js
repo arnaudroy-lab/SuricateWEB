@@ -305,7 +305,7 @@ export const defaultConfig = () => ({
   // delay : attente (s) après chargement et défilement · interact : simule un visiteur (souris, molette) ·
   // hideBanners : masque les bandeaux de cookies.
   // keep : captures planifiées à conserver pour ce site (0 = réglage général, Réglages › Détection).
-  screenshot: { enabled: true, interval: 60, fullPage: false, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true, keep: 0 },
+  screenshot: { enabled: true, interval: 60, fullPage: false, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true, keep: 0, compare: { enabled: false, minPct: 10, tolerance: 32, ignore: [] } },
   checks: {
     content: true, keywords: true, title: true, sizeDrop: true, scripts: true, links: true,
     redirect: true, status: true, tls: true, dns: true, rdap: true, server: true,
@@ -341,6 +341,21 @@ function pageList(v) {
 
 const strList = (v, max = 100) => (Array.isArray(v) ? v : String(v ?? '').split('\n')).map((x) => String(x).trim()).filter(Boolean).slice(0, max);
 
+/**
+ * Comparaison des captures (détection d'un changement d'apparence) : `minPct` = part de la page qui doit avoir changé pour alerter,
+ * `tolerance` = écart de couleur (0-255) en dessous duquel un pixel est « inchangé » (bruit de compression), `ignore` = éléments masqués sur
+ * les captures (horloge, carrousel, bandeau publicitaire) pour ne pas déclencher d'alerte à chaque passage.
+ */
+function normalizeCompare(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  return {
+    enabled: r.enabled === true,
+    minPct: Math.round(clamp(r.minPct, 1, 100, 10) * 10) / 10,
+    tolerance: Math.round(clamp(r.tolerance, 4, 100, 32)),
+    ignore: strList(r.ignore).map((s) => s.slice(0, 120)).slice(0, 10),
+  };
+}
+
 export function normalizeConfig(input = {}) {
   const d = defaultConfig();
   const c = { ...d, ...input, checks: { ...d.checks, ...(input.checks || {}) } };
@@ -357,6 +372,7 @@ export function normalizeConfig(input = {}) {
     interact: sc.interact !== false,
     hideBanners: sc.hideBanners !== false,
     keep: sc.keep ? Math.round(clamp(sc.keep, 1, MAX_KEEP, 0)) : 0,
+    compare: normalizeCompare(sc.compare),
   };
   c.selector = String(c.selector || '').trim();
   c.excludeSelector = String(c.excludeSelector || '').trim();
@@ -504,7 +520,15 @@ export const screenshotUsage = async (accountId = null) =>
     : db.get('SELECT COUNT(*) AS count, COALESCE(SUM(s.size), 0) AS bytes FROM screenshots s JOIN watches w ON w.id = s.watch_id WHERE w.account_id = ?', [accountId]);
 
 export const listScreenshots = async (watchId, limit = 120) =>
-  await db.all('SELECT id, ts, kind, size, width, height, final_url AS "finalUrl", page_title AS title FROM screenshots WHERE watch_id = ? ORDER BY id DESC LIMIT ?', [watchId, limit]);
+  await db.all('SELECT id, ts, kind, size, width, height, final_url AS "finalUrl", page_title AS title, diff_pct AS "diffPct", diff_file AS "diffFile" FROM screenshots WHERE watch_id = ? ORDER BY id DESC LIMIT ?', [watchId, limit]);
+
+/** La capture précédente à comparer : la plus récente de ce site, planifiée de préférence, avant la capture `beforeId` (toutes, si absent). */
+export const previousScreenshot = async (watchId, beforeId = null) =>
+  await db.get(`SELECT id, ts, kind, file, width, height, diff_pct AS "diffPct" FROM screenshots WHERE watch_id = ?${beforeId ? ' AND id < ?' : ''} ORDER BY id DESC LIMIT 1`, beforeId ? [watchId, beforeId] : [watchId]);
+
+/** Enregistre la différence mesurée entre une capture et la précédente (voir la migration 3). */
+export const setScreenshotDiff = async (id, { pct, file = null, vs = null }) =>
+  db.run('UPDATE screenshots SET diff_pct = ?, diff_file = ?, diff_vs = ? WHERE id = ?', [pct, file, vs, id]);
 
 /** Dernière capture de chaque site : { [watchId]: { id, ts } }. */
 export const latestScreenshots = async (accountId = null) =>
@@ -516,13 +540,13 @@ export const latestScreenshots = async (accountId = null) =>
 /** Captures à supprimer : au-delà de `keep` pour les planifiées, au-delà de `keepOther` pour les manuelles / d'alerte. */
 export async function screenshotsToPrune(watchId, keep, keepOther = 100) {
   // OFFSET exige un LIMIT sous SQLite : un très grand LIMIT veut dire « sans limite », et reste valable partout.
-  const sel = (cond, n) => db.all(`SELECT id, file, thumb FROM screenshots WHERE watch_id = ? AND ${cond} ORDER BY id DESC LIMIT 1000000000 OFFSET ?`, [watchId, n]);
+  const sel = (cond, n) => db.all(`SELECT id, file, thumb, diff_file AS "diffFile" FROM screenshots WHERE watch_id = ? AND ${cond} ORDER BY id DESC LIMIT 1000000000 OFFSET ?`, [watchId, n]);
   return [...(await sel("kind = 'scheduled'", keep)), ...(await sel("kind != 'scheduled'", keepOther))];
 }
 
 /** Un lot de captures (lignes seulement) après l'identifiant `afterId`, pour vérifier que leurs fichiers existent encore (purge). */
 export const screenshotRowsAfter = async (afterId, limit = 500) =>
-  await db.all('SELECT id, file, thumb FROM screenshots WHERE id > ? ORDER BY id LIMIT ?', [afterId, limit]);
+  await db.all('SELECT id, file, thumb, diff_file AS "diffFile" FROM screenshots WHERE id > ? ORDER BY id LIMIT ?', [afterId, limit]);
 
 export async function deleteScreenshotRows(ids) {
   for (const id of ids) await db.run('DELETE FROM screenshots WHERE id = ?', [id]);
