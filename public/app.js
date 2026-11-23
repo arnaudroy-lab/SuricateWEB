@@ -1769,7 +1769,7 @@ function everyChoices(list, current) {
 }
 
 function openSiteForm(w, presetUrl = '', presetGroup = null) {
-  const c = w?.config || { mode: 'site', checks: Object.fromEntries(CHECK_DEFS.flatMap(([, items]) => items).map(([k]) => [k, true])), selector: '', excludeSelector: '', ignoreRegex: [], images: false, userAgent: '', timeoutS: 20, headers: {}, allowedHosts: [], failThreshold: 2, forbidden: [], required: [], minChangePct: 0, notify: true, minSeverity: '', screenshot: { enabled: true, interval: 60, fullPage: false, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true } };
+  const c = w?.config || { mode: 'site', checks: Object.fromEntries(CHECK_DEFS.flatMap(([, items]) => items).map(([k]) => [k, true])), selector: '', excludeSelector: '', ignoreRegex: [], images: false, userAgent: '', timeoutS: 20, headers: {}, allowedHosts: [], failThreshold: 2, forbidden: [], required: [], minChangePct: 0, notify: true, minSeverity: '', screenshot: { enabled: true, interval: 60, fullPage: true, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true } };
   const sc = c.screenshot;
   const SHOT_DELAYS = [[0, tr('Aucune')], [2, tr('2 secondes')], [3, tr('3 secondes')], [5, tr('5 secondes')], [10, tr('10 secondes')], [20, tr('20 secondes')], [30, tr('30 secondes')]];
   const SHOT_EVERY = [[5, tr('5 minutes')], [15, tr('15 minutes')], [30, tr('30 minutes')], [60, tr('1 heure')], [180, tr('3 heures')], [360, tr('6 heures')], [720, tr('12 heures')], [1440, tr('24 heures')]];

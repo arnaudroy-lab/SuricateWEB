@@ -305,7 +305,7 @@ export const defaultConfig = () => ({
   // delay : attente (s) après chargement et défilement · interact : simule un visiteur (souris, molette) ·
   // hideBanners : masque les bandeaux de cookies.
   // keep : captures planifiées à conserver pour ce site (0 = réglage général, Réglages › Détection).
-  screenshot: { enabled: true, interval: 60, fullPage: false, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true, keep: 0, compare: { enabled: false, minPct: 10, tolerance: 32, ignore: [] } },
+  screenshot: { enabled: true, interval: 60, fullPage: true, width: 1280, height: 800, delay: 3, interact: true, hideBanners: true, keep: 0, compare: { enabled: false, minPct: 10, tolerance: 32, ignore: [] } },
   checks: {
     content: true, keywords: true, title: true, sizeDrop: true, scripts: true, links: true,
     redirect: true, status: true, tls: true, dns: true, rdap: true, server: true,

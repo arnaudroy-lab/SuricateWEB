@@ -43,6 +43,8 @@ test('config : les réglages de capture sont bornés', () => {
   const c = dbm.normalizeConfig({ screenshot: { interval: 1, width: 99999, height: 10, fullPage: 1 } });
   assert.deepEqual(c.screenshot, { enabled: true, interval: 5, fullPage: true, width: 1920, height: 400, delay: 3, interact: true, hideBanners: true, keep: 0, compare: { enabled: false, minPct: 10, tolerance: 32, ignore: [] } });
   assert.equal(dbm.normalizeConfig({}).screenshot.interval, 60);
+  assert.equal(dbm.normalizeConfig({}).screenshot.fullPage, true, 'page entière par défaut (nouveaux sites)');
+  assert.equal(dbm.normalizeConfig({ screenshot: { fullPage: false } }).screenshot.fullPage, false, 'un site déjà réglé sur « fenêtre visible » le reste');
   // Comparaison des captures : seuil, tolérance et éléments ignorés bornés ; désactivée par défaut
   const cmp = (compare) => dbm.normalizeConfig({ screenshot: { compare } }).screenshot.compare;
   assert.deepEqual(cmp({ enabled: true, minPct: 250, tolerance: 1, ignore: ['.a', '', '#b'] }), { enabled: true, minPct: 100, tolerance: 4, ignore: ['.a', '#b'] });
