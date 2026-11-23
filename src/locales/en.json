@@ -161,8 +161,6 @@
  "jour": "day",
  "jours": "days",
  "Version installée : {v1}. Les mises à jour du noyau corrigent souvent des failles de sécurité.": "Installed version: {v1}. Core updates often fix security flaws.",
- "• {name} ({v1}{v2}) : {v3} → {available} · en attente depuis {n} j": "• {name} ({v1}{v2}) : {v3} → {available} · pending for {n} d",
- ", inactif": ", inactive",
  "{plural} depuis plus de {plural2}": "{plural} for more than {plural2}",
  "mise à jour en attente": "pending update",
  "mises à jour en attente": "pending updates",
@@ -453,5 +451,7 @@
  "Le journal d'activité n'est disponible que pour WordPress": "The activity log is only available for WordPress",
  "source": "source",
  "sources": "sources",
- "Liaison impossible": "Link failed"
+ "Liaison impossible": "Link failed",
+ "• {name} ({what}) : {v3} → {available} · en attente depuis {n} j": "• {name} ({what}) : {v3} → {available} · pending for {n} d",
+ "inactif": "inactive"
 }

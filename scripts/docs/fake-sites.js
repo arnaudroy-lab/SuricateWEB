@@ -2,7 +2,10 @@
 // Tous les noms de domaine utilisent le TLD réservé « .example » (RFC 2606) : ils ne désignent aucun vrai site.
 import http from 'node:http';
 
-export const SITES = {
+/** Langue des captures : `--lang=en` (ou SHOT_LANG=en) produit des sites fictifs, des alertes et une interface en anglais. */
+export const SHOT_LANG = process.env.SHOT_LANG === 'en' || process.argv.includes('--lang=en') ? 'en' : 'fr';
+
+const SITES_FR = {
   dupont: {
     name: 'Fromagerie Dupont', domain: 'www.fromagerie-dupont.example', accent: '#d97706', accent2: '#92400e', bg: '#fffbeb', ink: '#451a03',
     nav: ['Accueil', 'Nos fromages', 'Boutique', 'Notre histoire', 'Contact'],
@@ -55,6 +58,54 @@ export const SITES = {
   },
 };
 
+// Mêmes sites, mêmes domaines et mêmes couleurs, textes en anglais : seules les mentions visibles changent.
+const sameBut = (slug, o) => ({ ...SITES_FR[slug], ...o });
+const SITES_EN = {
+  dupont: sameBut('dupont', {
+    name: 'Dupont Cheese Shop', nav: ['Home', 'Our cheeses', 'Shop', 'Our story', 'Contact'],
+    hero: { title: 'Hand-ripened cheeses since 1987', text: 'In the heart of Burgundy, the Dupont family selects and ripens its cheeses with passion.', cta: 'Discover the shop' },
+    cards: [{ t: 'Ripened Époisses', d: 'Washed in Burgundy marc, creamy and bold.' }, { t: '24-month Comté', d: 'Fruity and long on the palate, from our partner dairies.' }, { t: 'Farmhouse goat cheese', d: 'From the Côte-d\'Or, fresh or semi-dry.' }],
+    footer: '12 Halles Street, 21000 Dijon · +33 3 80 00 00 00 · Legal notice', promo: 'Christmas platter: 15% off until December 24',
+  }),
+  martin: sameBut('martin', {
+    name: 'Martin Accounting', nav: ['The firm', 'Our services', 'News', 'Client area', 'Contact'],
+    hero: { title: 'Chartered accountants by your side', text: 'Accounting, payroll, advice and support for small and mid-sized businesses in western France for 25 years.', cta: 'Book an appointment' },
+    cards: [{ t: 'Accounting', d: 'Annual accounts, tax returns and dashboards.' }, { t: 'Payroll and HR', d: 'Payslips, filings and employment-law advice.' }, { t: 'Starting a business', d: 'Legal form, business plan and formalities.' }],
+    footer: '4 Town Hall Square, 49300 Cholet · +33 2 41 00 00 00 · Legal notice',
+  }),
+  leroy: sameBut('leroy', {
+    name: 'Leroy Garage', nav: ['Home', 'Servicing', 'Tyres', 'Used cars', 'Contact'],
+    hero: { title: 'Your car is in good hands', text: 'All-make servicing, vehicle inspection and breakdown assistance seven days a week in Angers.', cta: 'Book a slot' },
+    cards: [{ t: 'Servicing', d: 'Manufacturer or independent, free quote.' }, { t: 'Tyres', d: 'Fitting, balancing and alignment.' }, { t: 'Used cars', d: 'Inspected vehicles with a 12-month warranty.' }],
+    footer: '27 Foch Boulevard, 49000 Angers · +33 2 41 11 11 11 · Legal notice',
+  }),
+  nova: sameBut('nova', {
+    nav: ['New in', 'Women', 'Men', 'Home', 'Sale'],
+    hero: { title: 'The autumn collection has arrived', text: 'Durable pieces, made in Europe. Free delivery on orders over €60.', cta: 'See the collection' },
+    cards: [{ t: 'Wool coat', d: '€149  ·  4 colours' }, { t: 'Knit sweater', d: '€79  ·  6 colours' }, { t: 'Leather tote bag', d: '€119  ·  3 colours' }],
+    footer: '48 h delivery · Free returns within 30 days · Legal notice',
+  }),
+  lumiere: sameBut('lumiere', {
+    nav: ['Light fixtures', 'Lamps', 'Pendants', 'Advice', 'Contact'],
+    hero: { title: 'The light that makes the home', text: 'Designer light fixtures and LED bulbs, selected by our lighting advisers.', cta: 'Explore the catalogue' },
+    cards: [{ t: 'Pendants', d: 'Blown glass, brass, rattan.' }, { t: 'Table lamps', d: 'For the living room, the office, the bedroom.' }, { t: 'LED lighting', d: 'Economical and durable.' }],
+    footer: '8 Lumières Street, 44000 Nantes · +33 2 40 22 22 22 · Legal notice',
+  }),
+  intranet: sameBut('intranet', {
+    name: 'Team intranet', nav: ['Home', 'Directory', 'Documents', 'Leave', 'Support'],
+    hero: { title: 'Hello, welcome to the intranet', text: 'Find company news, your shared documents and your pending requests.', cta: 'My requests' },
+    cards: [{ t: 'News', d: 'New invoicing process starting Monday.' }, { t: 'Documents', d: '12 documents updated this week.' }, { t: 'Leave', d: 'Book your winter leave before the 15th.' }],
+    footer: 'Staff access only · Support: ext. 4242',
+  }),
+  wiki: sameBut('wiki', {
+    name: 'Technical wiki', nav: ['Home', 'Procedures', 'Network', 'Backups', 'Contacts'],
+    hero: { title: 'Technical knowledge base', text: 'Installation procedures, network diagrams and troubleshooting sheets from the team.', cta: 'Browse procedures' },
+    cards: [{ t: 'Network', d: 'Addressing plan, VLANs, firewall.' }, { t: 'Backups', d: 'Backup plan and restore tests.' }, { t: 'Workstations', d: 'Images, deployment, inventory.' }],
+    footer: 'Last updated: this week · Infrastructure team',
+  }),
+};
+export const SITES = SHOT_LANG === 'en' ? SITES_EN : SITES_FR;
+
 /** Lignes de texte visibles d'une page : sert aussi à fabriquer les versions enregistrées (onglet Modifications). */
 export const linesOf = (s, { promo = false } = {}) => [
   s.name, s.nav.join(' '), s.hero.title, s.hero.text, s.hero.cta,
@@ -68,7 +119,7 @@ export const DEFACED_LINES = ['Hacked by Anonymous Cyber Team', 'Your security i
 export function siteHtml(slug, { promo = false } = {}) {
   const s = SITES[slug];
   const card = (c) => `<div class="card"><i></i><h3>${c.t}</h3><p>${c.d}</p></div>`;
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${s.name}</title><style>
+  return `<!doctype html><html lang="${SHOT_LANG}"><head><meta charset="utf-8"><title>${s.name}</title><style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:16px/1.5 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:${s.ink};background:${s.bg};min-height:800px}
 header{display:flex;align-items:center;justify-content:space-between;padding:20px 64px;background:#fff;border-bottom:1px solid rgba(0,0,0,.07)}

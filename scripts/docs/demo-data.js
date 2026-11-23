@@ -8,7 +8,7 @@
 // Lumière) et un certificat TLS qui expire bientôt (Garage Leroy) ; le domaine seul expire dans 3 semaines.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SITES, linesOf, DEFACED_LINES } from './fake-sites.js';
+import { SITES, SHOT_LANG, linesOf, DEFACED_LINES } from './fake-sites.js';
 import { cmsIncidents, phpSupport, PHP_WARN_DAYS } from '../../src/cms-alerts.js';
 
 export const DEMO_USER = 'demo';
@@ -24,7 +24,10 @@ const rng = (seed) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-const GROUPS = [['Clients', '#10b981'], ['Boutiques en ligne', '#f59e0b'], ['Interne', '#0ea5e9']];
+/** Texte propre à la langue des captures (--lang=en). */
+const T = (fr, en) => (SHOT_LANG === 'en' ? en : fr);
+
+const GROUPS = [['Clients', '#10b981'], [T('Boutiques en ligne', 'Online shops'), '#f59e0b'], [T('Interne', 'Internal'), '#0ea5e9']];
 
 const DEFS = [
   { slug: 'dupont', group: 0, ms: 210, server: 'nginx', registrar: 'Gandi SAS', dnssec: true, story: 'defaced' },
@@ -49,6 +52,8 @@ const OUTAGES = {
 
 // Relevés « plugin » fictifs (onglet Mises à jour). Noms et versions inventés : aucune vraie boutique ni installation.
 const DEMO_CMS_TOKEN = 'ZGVtby1qZXRvbi1mYXV4LXBvdXItbGEtZG9jdW1lbnRhdGlvbg';
+// Jeton du widget (fixe : l'adresse affichée dans l'onglet Mises à jour est la même à chaque génération des captures).
+const DEMO_WIDGET_TOKEN = 'demo-widget-0123456789abcdef';
 const item = (name, slug, current, available = null, o = {}) => ({ name, slug, current, available, active: true, known: true, ...o });
 const CMS_REPORTS = {
   martin: {
@@ -63,7 +68,7 @@ const CMS_REPORTS = {
       item('Hello Dolly', 'hello-dolly', '1.7.2', null, { active: false }),
     ],
     themes: [
-      item('Cabinet Martin (thème enfant)', 'cabinet-martin-child', '2.4.0'),
+      item(T('Cabinet Martin (thème enfant)', 'Martin Accounting (child theme)'), 'cabinet-martin-child', '2.4.0'),
       item('Twenty Twenty-Five', 'twentytwentyfive', '1.0', '1.3', { active: false, age: 8 }),
     ],
     // Onglet « Sécurité » : tout est conforme (aucune alerte de plus dans la démo), une extension premium n'est pas vérifiable. `checkedAt` est ajouté à la création de l'état.
@@ -73,7 +78,7 @@ const CMS_REPORTS = {
         ['Yoast SEO', 'wordpress-seo', '24.2', 612], ['Contact Form 7', 'contact-form-7', '5.9.8', 188], ['Complianz', 'complianz-gdpr', '7.4.0', 301],
         ['Akismet Anti-spam', 'akismet', '5.3.5', 24], ['Redirection', 'redirection', '5.5.0', 96], ['Hello Dolly', 'hello-dolly', '1.7.2', 3],
       ].map(([name, slug, version, checked]) => ({ name, slug, version, known: true, checked, modified: [], added: [], missing: [], more: 0, skipped: false }))
-        .concat([{ name: 'Carte des agences Pro', slug: 'agency-map-pro', version: '3.2.1', known: false, checked: 0, modified: [], added: [], missing: [], more: 0, skipped: false }]),
+        .concat([{ name: T('Carte des agences Pro', 'Branch Map Pro'), slug: 'agency-map-pro', version: '3.2.1', known: false, checked: 0, modified: [], added: [], missing: [], more: 0, skipped: false }]),
       uploads: { php: [], more: 0, scanned: 1284, truncated: false },
       dirs: [], partial: false,
     },
@@ -88,16 +93,16 @@ const CMS_REPORTS = {
     php: '8.2.27', cms: 'prestashop', cmsVersion: '8.1.7',
     core: { current: '8.1.7', available: '8.2.1', known: true, age: 4 },
     extensions: [
-      item('Paiement par carte', 'paymentcard', '3.5.2', '3.6.0', { age: 2 }),
-      item('Panier', 'ps_shoppingcart', '2.0.7', '2.0.9', { age: 5 }),
+      item(T('Paiement par carte', 'Card payment'), 'paymentcard', '3.5.2', '3.6.0', { age: 2 }),
+      item(T('Panier', 'Shopping cart'), 'ps_shoppingcart', '2.0.7', '2.0.9', { age: 5 }),
       item('Newsletter', 'ps_emailsubscription', '2.9.0'),
-      item('Paiement par chèque', 'ps_checkpayment', '2.0.2'),
-      item('Export du catalogue (sur mesure)', 'nova_feed', '1.4', null, { known: false }),
-      item('Transporteur local', 'novashipping', '0.9.3', null, { known: false, active: false }),
+      item(T('Paiement par chèque', 'Pay by check'), 'ps_checkpayment', '2.0.2'),
+      item(T('Export du catalogue (sur mesure)', 'Catalog export (custom)'), 'nova_feed', '1.4', null, { known: false }),
+      item(T('Transporteur local', 'Local carrier'), 'novashipping', '0.9.3', null, { known: false, active: false }),
     ],
     themes: [
       item('Classic', 'classic', '2.0.3', '2.1.0', { active: false, age: 6 }),
-      item('Nova (thème sur mesure)', 'nova', '1.2.0', null, { known: false }),
+      item(T('Nova (thème sur mesure)', 'Nova (custom theme)'), 'nova', '1.2.0', null, { known: false }),
     ],
   },
 };
@@ -109,7 +114,7 @@ const withSince = (report, now) => {
 };
 
 const hex = (n, seed) => { const r = rng(seed); return Array.from({ length: n }, () => Math.floor(r() * 256).toString(16).padStart(2, '0').toUpperCase()).join(':'); };
-const fmtDate = (t) => new Date(t).toLocaleDateString('fr-FR');
+const fmtDate = (t) => new Date(t).toLocaleDateString(SHOT_LANG === 'en' ? 'en-GB' : 'fr-FR');
 
 export async function seedDemo({ dataDir, fakeSitesBase }) {
   mkdirSync(dataDir, { recursive: true });
@@ -155,7 +160,7 @@ export async function seedDemo({ dataDir, fakeSitesBase }) {
   };
   for (const [i, d] of DEFS.entries()) {
     await addWatch({ ...d, name: SITES[d.slug].name, url: `https://${SITES[d.slug].domain}/`, tags: d.slug === 'dupont' ? ['client', 'wordpress'] : [],
-      config: d.cms ? { cms: { type: d.cms, token: DEMO_CMS_TOKEN, path: '', intervalMin: 720 } } : {} }, { i });
+      config: d.cms ? { cms: { type: d.cms, token: DEMO_CMS_TOKEN, widgetToken: DEMO_WIDGET_TOKEN, path: '', intervalMin: 720 } } : {} }, { i });
   }
   await addWatch({ slug: 'domain', name: 'exemple-societe.example', url: 'https://exemple-societe.example/', group: null, config: { mode: 'domain' }, story: 'domain', registrar: 'Gandi SAS', dnssec: true, ms: 0 }, { i: 7 });
 
@@ -234,7 +239,7 @@ export async function seedDemo({ dataDir, fakeSitesBase }) {
         locked: true, status: ['client transfer prohibited', 'client update prohibited'], nameservers: ns, dnssec: w.dnssec },
     };
     if (REPORT[w.slug]) {
-      state.cms = { ...REPORT[w.slug], checkedAt: now - 3 * H, ok: true, error: null };
+      state.cms = { ...REPORT[w.slug], checkedAt: now - 3 * H, ok: true, error: null, widgetLink: { ok: true, url: `https://suricateweb.exemple-societe.example/widget/${DEMO_WIDGET_TOKEN}.json`, checkedAt: now - 3 * H } };
       if (state.cms.integrity) state.cms.integrity = { ...state.cms.integrity, checkedAt: now - 3 * H, ok: true, error: null };
       if (state.cms.code) state.cms.code = { ...state.cms.code, checkedAt: now - 3 * H, ok: true, error: null };
       for (const i of cmsIncidents(state.cms, { afterDays: 7, now })) state.incidents[i.key] = { severity: i.severity, title: i.title, detail: i.detail, since: now - (AGO[w.slug]?.[i.key] ?? D) };
@@ -277,10 +282,10 @@ export async function seedDemo({ dataDir, fakeSitesBase }) {
     if (w.slug === 'martin') {
       const v2 = base.map((l) => (l.includes('02 41 00 00 00') ? l.replace('02 41 00 00 00', '02 41 00 00 01') : l));
       snaps.martin.v2 = await snap(w, 18 * D, v2, title, base);
-      const v3 = [...v2.slice(0, 5), 'Clôture comptable : vos pièces avant le 20 décembre', ...v2.slice(5)];
+      const v3 = [...v2.slice(0, 5), T('Clôture comptable : vos pièces avant le 20 décembre', 'Year-end closing: send your documents before December 20'), ...v2.slice(5)];
       snaps.martin.v3 = await snap(w, 3 * D, v3, title, v2);
     }
-    if (w.slug === 'nova') snaps.nova.v2 = await snap(w, 5 * D, [...base.slice(0, 5), 'Livraison offerte dès 60 € d\'achat', ...base.slice(5)], title, base);
+    if (w.slug === 'nova') snaps.nova.v2 = await snap(w, 5 * D, [...base.slice(0, 5), T('Livraison offerte dès 60 € d\'achat', 'Free delivery on orders over €60'), ...base.slice(5)], title, base);
   }
 
   // ── Alertes : insérées par ordre chronologique (l'application les affiche par identifiant décroissant) ──
@@ -335,7 +340,7 @@ export async function seedDemo({ dataDir, fakeSitesBase }) {
   await db.exec('COMMIT');
 
   // ── Maintenance : une fenêtre en cours et une prévue demain, sur « Wiki technique » ──
-  await dbm.addMaintenance({ watchId: W.wiki, start: now - 20 * MIN, end: now + 40 * MIN, note: 'Mise à jour du serveur de sauvegarde' });
+  await dbm.addMaintenance({ watchId: W.wiki, start: now - 20 * MIN, end: now + 40 * MIN, note: T('Mise à jour du serveur de sauvegarde', 'Backup server update') });
   await dbm.addMaintenance({ watchId: W.wiki, start: now + 20 * H, end: now + 21 * H, note: 'Renouvellement du certificat' });
 
   // ── Captures d'écran enregistrées (images réelles des faux sites) ──

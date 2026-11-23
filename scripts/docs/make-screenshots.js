@@ -3,19 +3,29 @@
 // Principe : on fabrique une base de démonstration (scripts/docs/demo-data.js), on lance SuricateWeb dessus en « mode démo »
 // (aucun contrôle réseau), puis on pilote un vrai Chrome qui se connecte, parcourt les écrans et les photographie.
 // Les images ne contiennent donc que des données inventées (domaines « .example », IP de documentation).
+//
+// Langue : `npm run docs:screenshots -- --lang=en` photographie l'interface en anglais, avec des sites fictifs et des alertes en anglais,
+// dans docs/screenshots/en/. `--only=tableau-de-bord,telegram` n'écrit que ces images (noms sans « .png »), pour ne pas versionner tout un jeu.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startFakeSites, linesOf, DEFACED_LINES, SITES } from './fake-sites.js';
+import { startFakeSites, linesOf, DEFACED_LINES, SITES, SHOT_LANG } from './fake-sites.js';
 import { seedDemo, DEMO_USER, DEMO_PASSWORD } from './demo-data.js';
 import { startServer } from '../../test-support/server.js';
 import { openPage, findChrome } from '../../test-support/browser.js';
+import { readFileSync } from 'node:fs';
 import { buildMessage, buildKeyboard } from '../../src/telegram.js';
+import { runWithLang, tr, retranslate } from '../../src/i18n.js';
 import { diffLines, preview } from '../../src/diff.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const OUT = join(ROOT, 'docs', 'screenshots');
+const EN = SHOT_LANG === 'en';
+const OUT = join(ROOT, 'docs', 'screenshots', ...(EN ? ['en'] : []));
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) ?? '').slice(7).split(',').filter(Boolean);
+// Libellés de l'interface visés par les clics : le français est la clé du dictionnaire, l'anglais en est la traduction.
+const DICT = EN ? JSON.parse(readFileSync(join(ROOT, 'public', 'locales', 'en.json'), 'utf8')) : {};
+const L = (fr) => DICT[fr] ?? fr;
 const W = 1440;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -44,10 +54,11 @@ try {
   // Le texte ET les boutons sont ceux que produit l'application ; seul l'habillage de la conversation est reconstitué.
   const dupont = { id: 1, name: SITES.dupont.name, url: `https://${SITES.dupont.domain}/` };
   const demoSettings = { telegram: { includeDiff: true, buttons: true }, baseUrl: 'https://suricateweb.exemple-societe.example' };
-  const keyboard = buildKeyboard(dupont, defacedAlerts, demoSettings);
-  const text = buildMessage(dupont, defacedAlerts, demoSettings, { link: !keyboard.link });
+  const keyboard = runWithLang(SHOT_LANG, () => buildKeyboard(dupont, defacedAlerts, demoSettings));
+  const text = runWithLang(SHOT_LANG, () => buildMessage(dupont, defacedAlerts.map((a) => ({ ...a, title: retranslate(a.title), detail: retranslate(a.detail) })), demoSettings, { link: !keyboard.link }));
+  const caption = runWithLang(SHOT_LANG, () => tr('📸 {name} — la page au moment de l\'alerte', { name: SITES.dupont.name }));
   const photoB64 = images.dupontDefaced.image.toString('base64');
-  fake.setPage('/telegram', `<!doctype html><meta charset="utf-8"><style>
+  fake.setPage('/telegram', `<!doctype html><html lang="${SHOT_LANG}"><meta charset="utf-8"><style>
     *{box-sizing:border-box;margin:0}body{background:#0e1621;font:15px/1.45 -apple-system,"Segoe UI",Helvetica,sans-serif;color:#e8ecf0;padding:26px}
     #chat{width:540px;display:flex;flex-direction:column;gap:6px}
     .bot{display:flex;align-items:center;gap:12px;padding:0 4px 12px}.av{width:40px;height:40px;border-radius:50%;background:#4f46e5;display:grid;place-items:center;font-weight:800}
@@ -61,7 +72,7 @@ try {
     <div class="bot"><div class="av">S</div><div><b>SuricateWeb Bot</b><span>bot</span></div></div>
     <div class="m">${text}<span class="t">14:32</span></div>
     <div class="kb">${keyboard.row.map((b) => `<span>${b.text}</span>`).join('')}</div>
-    <div class="p"><img src="data:image/jpeg;base64,${photoB64}"><div>📸 ${SITES.dupont.name} — la page au moment de l'alerte<span class="t">14:32</span></div></div>
+    <div class="p"><img src="data:image/jpeg;base64,${photoB64}"><div>${caption}<span class="t">14:32</span></div></div>
   </div>`);
 
   console.log('2/3  Serveur de démonstration…');
@@ -83,6 +94,7 @@ try {
     await sleep(500); // animations d'apparition
   };
   const save = async (name, buf) => {
+    if (ONLY.length && !ONLY.includes(name.replace(/\.png$/, ''))) return;
     writeFileSync(join(OUT, name), buf);
     written.push([name, statSync(join(OUT, name)).size]);
     console.log(`     ✓ ${name}  (${Math.round(statSync(join(OUT, name)).size / 1024)} Ko)`);
@@ -90,7 +102,7 @@ try {
   const fit = (o = {}) => page.fit(W, o);
 
   const reload = async () => { await page.navigate(`${srv.base}/`); await waitFor('document.querySelector(".sidebar")'); };
-  await page.run(`localStorage.setItem('suricate-theme', 'light'); localStorage.setItem('suricate-view', 'groups'); true`);
+  await page.run(`localStorage.setItem('suricate-theme', 'light'); localStorage.setItem('suricate-view', 'groups'); localStorage.setItem('suricate-lang', '${SHOT_LANG}'); true`);
   await reload();
 
   // ── Thème clair ──
@@ -98,23 +110,23 @@ try {
   await fit({ max: 1800 });
   await save('tableau-de-bord.png', await page.screenshot());
 
-  await go(`#/sites/${id('Nova Boutique')}`, '.pv-img img');
+  await go(`#/sites/${id(SITES.nova.name)}`, '.pv-img img');
   await waitFor('document.querySelector(".ub")');
   await fit({ max: 2200 });
   await save('site-apercu.png', await page.screenshot());
 
-  await go(`#/sites/${id('Maison Lumière')}/disponibilite`, '.uhero');
+  await go(`#/sites/${id(SITES.lumiere.name)}/disponibilite`, '.uhero');
   await waitFor('document.querySelector(".chart")');
   await fit({ max: 2200 });
   await save('disponibilite.png', await page.screenshot());
 
-  await go(`#/sites/${id('Fromagerie Dupont')}/modifications`, '.tl-item');
+  await go(`#/sites/${id(SITES.dupont.name)}/modifications`, '.tl-item');
   await page.run(`document.querySelector('.tl-item .tl-head').click()`);
   await waitFor('document.querySelector(".diff .ln")');
   await fit({ max: 1800 });
   await save('modifications.png', await page.screenshot());
 
-  await go(`#/sites/${id('Fromagerie Dupont')}/captures`, '.shots .shot');
+  await go(`#/sites/${id(SITES.dupont.name)}/captures`, '.shots .shot');
   await fit({ max: 1800 });
   await save('captures.png', await page.screenshot());
 
@@ -122,37 +134,37 @@ try {
   await page.viewport(W, 900);
   await page.run(`document.querySelector('.shots .shot').click()`);
   await waitFor('document.querySelector(".lb")');
-  await page.run(`[...document.querySelectorAll('.lb-actions button')].find((b) => b.title.startsWith('Comparer')).click()`);
+  await page.run(`[...document.querySelectorAll('.lb-actions button')].find((b) => b.title.startsWith(${JSON.stringify(L('Comparer')) })).click()`);
   await waitFor('document.querySelector(".lb-stage.two img")');
   await sleep(600);
   await imagesLoaded();
   await save('comparaison.png', await page.screenshot());
   await page.run(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); true`);
 
-  await go(`#/sites/${id('Cabinet Martin')}/domaine`, '.chk');
+  await go(`#/sites/${id(SITES.martin.name)}/domaine`, '.chk');
   await fit({ max: 2400 });
   await save('domaine-dns.png', await page.screenshot());
 
   // Onglet « Mises à jour » (relevé du plugin WordPress / PrestaShop), puis le réglage du plugin dans le formulaire du site.
-  await go(`#/sites/${id('Cabinet Martin')}/mises-a-jour`, '.table');
+  await go(`#/sites/${id(SITES.martin.name)}/mises-a-jour`, '.table');
   await fit({ max: 2000 });
   await save('mises-a-jour.png', await page.screenshot());
 
   // Onglet « Sécurité » : intégrité des fichiers WordPress et comptes administrateurs.
-  await go(`#/sites/${id('Cabinet Martin')}/securite`, '.table');
+  await go(`#/sites/${id(SITES.martin.name)}/securite`, '.table');
   await fit({ max: 2000 });
   await save('securite.png', await page.screenshot());
 
-  await go(`#/sites/${id('Nova Boutique')}/mises-a-jour`, '.table');
+  await go(`#/sites/${id(SITES.nova.name)}/mises-a-jour`, '.table');
   await fit({ max: 2000 });
   await save('mises-a-jour-prestashop.png', await page.screenshot());
 
   // Maintenance : bandeaux d'une fenêtre en cours et d'une fenêtre prévue, puis le dialogue de planification.
-  await go(`#/sites/${id('Wiki technique')}`, '.incident.info');
+  await go(`#/sites/${id(SITES.wiki.name)}`, '.incident.info');
   await fit({ max: 1000 });
   await save('maintenance.png', await page.screenshot());
 
-  await go(`#/sites/${id('Intranet équipe')}`, '.detail-head');
+  await go(`#/sites/${id(SITES.intranet.name)}`, '.detail-head');
   await page.viewport(W, 900);
   await page.run(`[...document.querySelectorAll('.detail-head .btn')].find((b) => b.textContent.trim().includes('Maintenance')).click()`);
   await waitFor('document.querySelector(".modal")');
@@ -178,9 +190,9 @@ try {
   await page.run(`document.querySelector('.drawer .drawer-head .btn').click(); true`);
 
   // Formulaire d'un site WordPress : bloc « WordPress / PrestaShop » (jeton, dossier, fréquence, plugin à télécharger).
-  await go(`#/sites/${id('Cabinet Martin')}`, '.ub');
+  await go(`#/sites/${id(SITES.martin.name)}`, '.ub');
   await page.viewport(W, 1000);
-  await page.run(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Modifier').click()`);
+  await page.run(`(() => { const all = [...document.querySelectorAll('button')]; const b = all.find((x) => x.textContent.trim() === ${JSON.stringify(L('Modifier'))}); if (!b) throw new Error('Bouton introuvable parmi : ' + all.map((x) => x.textContent.trim()).join(' | ')); b.click(); })()`);
   await waitFor('document.querySelector(".drawer details.acc[open]")');
   await page.run(`[...document.querySelectorAll('.drawer details')].find((d) => d.textContent.includes('WordPress / PrestaShop')).scrollIntoView({ block: 'start' })`);
   await sleep(500);

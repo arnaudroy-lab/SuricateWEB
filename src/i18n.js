@@ -58,9 +58,12 @@ function buildKnown() {
   const templates = [];
   const add = (text, key) => {
     if (!/\{\w+\}/.test(text)) { if (!exact.has(text)) exact.set(text, key); return; }
-    const names = []; let re = ''; let last = 0;
-    for (const m of text.matchAll(/\{(\w+)\}/g)) { re += escRe(text.slice(last, m.index)) + '([\\s\\S]+?)'; names.push(m[1]); last = m.index + m[0].length; }
-    templates.push({ re: new RegExp(`^${re}${escRe(text.slice(last))}$`), names, key, weight: text.replace(/\{\w+\}/g, '').length });
+    // Deux motifs : « strict » (un paramètre tient sur UNE ligne : les listes à puces ne se laissent pas avaler par un seul paramètre) et
+    // « large » (un paramètre peut couvrir plusieurs lignes), essayé en dernier recours.
+    const names = []; let re = ''; let strict = ''; let last = 0;
+    for (const m of text.matchAll(/\{(\w+)\}/g)) { const lit = escRe(text.slice(last, m.index)); re += `${lit}([\\s\\S]+?)`; strict += `${lit}([^\\n]+?)`; names.push(m[1]); last = m.index + m[0].length; }
+    const tail = escRe(text.slice(last));
+    templates.push({ re: new RegExp(`^${re}${tail}$`), strict: new RegExp(`^${strict}${tail}$`), names, key, weight: text.replace(/\{\w+\}/g, '').length });
   };
   for (const code of Object.keys(LOCALES)) {
     if (code === DEFAULT_LANG) continue;
@@ -75,9 +78,32 @@ export function retranslate(text) {
   if (typeof text !== 'string' || text.length < 3) return text;
   known ??= buildKnown();
   if (known.exact.has(text)) return tr(known.exact.get(text));
+  const fill = (t, m) => tr(t.key, Object.fromEntries(t.names.map((n, i) => [n, retranslate(m[i + 1])])));
+  for (const t of known.templates) {
+    const m = t.strict.exec(text);
+    if (m) return fill(t, m);
+  }
+  // Texte de plusieurs lignes (liste à puces de mises à jour, de fichiers…) : chaque ligne est un gabarit à part.
+  if (text.includes('\n')) {
+    const lines = text.split('\n');
+    const out = lines.map((l) => retranslate(l));
+    if (out.some((l, i) => l !== lines[i])) return out.join('\n');
+  }
   for (const t of known.templates) {
     const m = t.re.exec(text);
-    if (m) return tr(t.key, Object.fromEntries(t.names.map((n, i) => [n, retranslate(m[i + 1])])));
+    if (m) return fill(t, m);
+  }
+  // « thème, inactif » : une liste courte de mots connus, séparés par des virgules.
+  if (text.includes(', ') && !text.includes('\n')) {
+    const parts = text.split(', ');
+    const out = parts.map((x) => retranslate(x));
+    if (out.some((x, i) => x !== parts[i])) return out.join(', ');
+  }
+  // « 12 jours », « 2 mises à jour en attente » : un nombre suivi d'un nom connu (paramètres produits par plural()).
+  const counted = /^(\d+) ([^\n]+)$/.exec(text);
+  if (counted) {
+    const noun = retranslate(counted[2]);
+    if (noun !== counted[2]) return `${counted[1]} ${noun}`;
   }
   return text;
 }

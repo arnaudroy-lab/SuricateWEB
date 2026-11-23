@@ -95,6 +95,21 @@ test('textes enregistrés : retraduits à l\'affichage dans la langue de l\'util
   assert.equal(alertRow(row).title, 'Le titre de la page a changé', 'français hors contexte : inchangé');
 });
 
+test('textes enregistrés : paramètres comptés (« 12 jours »), listes à puces ligne par ligne, mots séparés par des virgules', async () => {
+  const { retranslate } = await import('../src/i18n.js');
+  const en = (t) => runWithLang('en', () => retranslate(t));
+  const fr = (t) => runWithLang('fr', () => retranslate(t));
+  assert.equal(en('WordPress 6.8.3 est disponible depuis 12 jours'), 'WordPress 6.8.3 has been available for 12 days', 'nom pluriel d\'un paramètre');
+  assert.equal(en('WordPress 6.8.3 est disponible depuis 1 jour'), 'WordPress 6.8.3 has been available for 1 day');
+  assert.equal(en('2 mises à jour en attente depuis plus de 7 jours'), '2 pending updates for more than 7 days');
+  assert.equal(en('1 mise à jour en attente depuis plus de 1 jour'), '1 pending update for more than 1 day');
+  const list = '• Yoast SEO (extension) : 24.2 → 25.4 · en attente depuis 9 j\n• Twenty Twenty-Five (thème, inactif) : 1.0 → 1.3 · en attente depuis 8 j';
+  assert.equal(en(list), '• Yoast SEO (extension) : 24.2 → 25.4 · pending for 9 d\n• Twenty Twenty-Five (theme, inactive) : 1.0 → 1.3 · pending for 8 d', 'chaque ligne est un gabarit : la deuxième n\'est pas avalée par le premier paramètre');
+  assert.equal(fr(en(list)), list, 'aller-retour');
+  assert.equal(en('3 widgets cassés'), '3 widgets cassés', 'un nombre suivi d\'un texte inconnu : inchangé');
+  assert.equal(en('rouge, vert'), 'rouge, vert', 'une liste de mots inconnus : inchangée');
+});
+
 test('en-tête x-lang : la langue affichée par l\'interface prime sur celle du compte', async () => {
   await srv.put('/api/language', { language: 'fr' });
   assert.equal((await srv.put('/api/language', { language: 'klingon' })).json.error, 'Langue inconnue', 'compte en français, sans en-tête');

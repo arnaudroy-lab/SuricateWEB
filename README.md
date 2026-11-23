@@ -144,7 +144,10 @@ Les images de ce document sont produites par le même jeu de données :
 
 ```bash
 npm run docs:screenshots     # régénère docs/screenshots/*.png (nécessite Chrome ou Chromium)
+npm run docs:screenshots -- --lang=en --only=tableau-de-bord,telegram   # en anglais (docs/screenshots/en/), seulement ces images
 ```
+
+En anglais, l'interface, les sites fictifs, les alertes et le message Telegram sont écrits en anglais ; `--only` évite de versionner un jeu complet. La page d'accueil de la version hébergée reprend six de ces images (voir sa documentation).
 
 ## Déploiement sur Dokploy (Docker)
 
