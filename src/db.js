@@ -327,7 +327,7 @@ export const defaultConfig = () => ({
   // Connecteur WordPress / PrestaShop : SuricateWeb interroge le plugin (intervalMin en minutes).
   // alerts : mises à jour en retard / PHP en fin de support · security : intégrité des fichiers et comptes administrateurs.
   // codeScan : recherche de code suspect (porte dérobée, code obfusqué) dans le groupe « security » ; désactivable seul (lecture de tous les fichiers PHP du site).
-  cms: { type: '', token: '', path: '', intervalMin: 720, alerts: true, security: true, codeScan: true },
+  cms: { type: '', token: '', path: '', intervalMin: 720, alerts: true, security: true, codeScan: true, health: true },
   // Pages supplémentaires du même site (panier, contact, connexion…) : [{ url, label }], 10 au plus.
   pages: [],
   // Page de statut publique en lecture seule, à l'adresse /status/<jeton>.
@@ -416,6 +416,8 @@ export function normalizeConfig(input = {}) {
     alerts: rawCms.alerts !== false,
     security: rawCms.security !== false,
     codeScan: rawCms.codeScan !== false,
+    // Santé du site (disque, débogage, tâches planifiées…) : relevé et alertes de configuration (plugin ≥ 1.5).
+    health: rawCms.health !== false,
     // Jeton du widget (état en lecture seule affiché dans l'administration du CMS) : aléatoire, distinct du jeton du plugin.
     widgetToken: /^[A-Za-z0-9_-]{16,64}$/.test(String(rawCms.widgetToken ?? '')) ? String(rawCms.widgetToken) : '',
   };

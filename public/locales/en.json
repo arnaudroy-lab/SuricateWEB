@@ -873,5 +873,16 @@
  "Adresse du webhook": "Webhook URL",
  "Cette adresse est un secret : quiconque la possède peut écrire dans votre canal. Elle est enregistrée chiffrée quand une clé est configurée, et n'est plus jamais affichée en entier.": "This URL is a secret: anyone who has it can post in your channel. It is stored encrypted when a key is configured, and is never shown in full again.",
  "Coupe tous les envois Slack sans perdre la configuration.": "Stops all Slack messages without losing the configuration.",
- "Slack ne reçoit pas de capture d'écran ni de bouton « Marquer comme lu » : ils restent propres à Telegram.": "Slack gets no screenshot and no “Mark as read” button: those stay specific to Telegram."
+ "Slack ne reçoit pas de capture d'écran ni de bouton « Marquer comme lu » : ils restent propres à Telegram.": "Slack gets no screenshot and no “Mark as read” button: those stay specific to Telegram.",
+ "Santé": "Health",
+ "Normal": "Normal",
+ "À améliorer": "Could be better",
+ "Santé du site mise à jour": "Site health updated",
+ "Santé de {kind}": "{kind} health",
+ "Le suivi de la santé est désactivé pour ce site (Modifier › WordPress / PrestaShop).": "Health monitoring is turned off for this site (Edit › WordPress / PrestaShop).",
+ "relevée {rel}": "checked {rel}",
+ "Aucun relevé de santé pour le moment. Mettez le plugin à jour (version 1.5 ou plus) puis actualisez.": "No health reading yet. Update the plugin (version 1.5 or later), then refresh.",
+ "SuricateWeb relève des faits sur le serveur du site et décide lui-même des seuils d'alerte. Les sauvegardes ne sont pas surveillées : elles dépendent de la solution que vous utilisez.": "SuricateWeb reads facts from the site's server and sets the alert thresholds itself. Backups are not monitored: they depend on the solution you use.",
+ "Suivre la santé du site (disque, débogage, tâches planifiées…)": "Monitor site health (disk, debugging, scheduled tasks…)",
+ "Le plugin relève des faits sur le serveur : espace disque, mode débogage, tâches planifiées en retard, site masqué des moteurs de recherche, HTTPS, mémoire PHP. SuricateWeb alerte quand l'un d'eux devient un risque. Les sauvegardes ne sont pas surveillées. Nécessite la version 1.5 du plugin.": "The plugin reads facts from the server: disk space, debug mode, overdue scheduled tasks, site hidden from search engines, HTTPS, PHP memory. SuricateWeb alerts when one becomes a risk. Backups are not monitored. Requires plugin version 1.5."
 }

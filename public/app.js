@@ -970,11 +970,12 @@ async function viewDetail(id, tab, tok, openSnap) {
   const cmsSecN = cmsSecurityCount(w);
   const tabs = domainOnly
     ? [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['domaine', tr('Domaine & DNS'), 'globe']]
-    : [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['captures', tr('Captures'), 'image'], ['disponibilite', tr('Disponibilité'), 'clock'], ['modifications', tr('Modifications'), 'file'], ['domaine', tr('Domaine & DNS'), 'globe'], ...(cmsOn ? [['mises-a-jour', tr('Mises à jour'), 'layers'], ['securite', tr('Sécurité'), 'shield']] : [])];
+    : [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['captures', tr('Captures'), 'image'], ['disponibilite', tr('Disponibilité'), 'clock'], ['modifications', tr('Modifications'), 'file'], ['domaine', tr('Domaine & DNS'), 'globe'], ...(cmsOn ? [['mises-a-jour', tr('Mises à jour'), 'layers'], ['securite', tr('Sécurité'), 'shield'], ['sante', tr('Santé'), 'server']] : [])];
   root.append(tabStrip(...tabs.map(([k, l, icn]) => h('a', { href: `#/sites/${id}/${k}`, class: tab === k ? 'on' : '', role: 'tab' }, ic(icn), l,
     k === 'alertes' && unread ? h('span', { class: 'badge' }, unread) : null,
     k === 'mises-a-jour' && cmsN ? h('span', { class: 'badge warn' }, cmsN) : null,
-    k === 'securite' && cmsSecN ? h('span', { class: 'badge' }, cmsSecN) : null))));
+    k === 'securite' && cmsSecN ? h('span', { class: 'badge' }, cmsSecN) : null,
+    k === 'sante' && cmsHealthN(w) ? h('span', { class: 'badge warn' }, cmsHealthN(w)) : null))));
 
   if (tab === 'modifications' && !domainOnly) root.append(await changesTab(w, openSnap));
   else if (tab === 'captures' && !domainOnly) root.append(await capturesTab(w));
@@ -982,6 +983,7 @@ async function viewDetail(id, tab, tok, openSnap) {
   else if (tab === 'domaine') root.append(await domainTab(w));
   else if (tab === 'mises-a-jour' && cmsOn) root.append(updatesTab(w));
   else if (tab === 'securite' && cmsOn) root.append(securityTab(w));
+  else if (tab === 'sante' && cmsOn) root.append(healthTab(w));
   else if (tab === 'alertes') {
     const alerts = await api(`/alerts?watch=${id}&limit=100`);
     root.append(alerts.length ? alertList(alerts, false) : empty('bell', tr('Aucune alerte'), tr('Ce site n\'a déclenché aucune alerte pour le moment.')));
@@ -1422,6 +1424,39 @@ function updatesTab(w) {
   return root;
 }
 
+
+// ───────────── Santé du site : disque, débogage, tâches planifiées… ─────────────
+
+const HEALTH_PILL = { ok: ['ok', () => tr('Normal')], info: ['mute', () => tr('À améliorer')], warn: ['warn', () => tr('Attention')], crit: ['crit', () => tr('Critique')] };
+/** Nombre de contrôles de santé qui demandent de l'attention (pastille de l'onglet). */
+const cmsHealthN = (w) => (w.config.cms.health === false ? 0 : (w.cms?.health?.checks || []).filter((c) => c.level === 'warn' || c.level === 'crit').length);
+
+function healthTab(w) {
+  const hl = w.cms?.health;
+  const kind = w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
+  const refresh = h('button', { class: 'btn', onclick: guard(async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    const r = await api(`/watches/${w.id}/cms`, { method: 'POST' });
+    toast(r.ok ? tr('Santé du site mise à jour') : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
+    route();
+  }) }, ic('refresh'), tr('Actualiser'));
+  if (w.config.cms.health === false) {
+    return h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, tr('Santé de {kind}', { kind }))),
+      h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Le suivi de la santé est désactivé pour ce site (Modifier › WordPress / PrestaShop).'))));
+  }
+  const checks = hl?.checks || [];
+  return h('div', {},
+    h('div', { class: 'card', style: { marginBottom: '16px' } },
+      h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Santé de {kind}', { kind })), h('span', { class: 'muted' }, hl?.checkedAt ? tr('relevée {rel}', { rel: rel(hl.checkedAt) }) : tr('en attente du premier relevé'))), refresh),
+      hl?.error ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, hl.error, checks.length ? h('span', { class: 'muted' }, tr(' Le tableau reste celui du dernier relevé réussi.')) : null))) : null,
+      checks.length
+        ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('tbody', {}, ...checks.map((c) => h('tr', {},
+          h('td', {}, c.label), h('td', { class: 'mono' }, c.value), h('td', { style: { textAlign: 'right' } }, h('span', { class: `pill ${HEALTH_PILL[c.level][0]}` }, HEALTH_PILL[c.level][1]())))))))
+        : (hl?.error ? null : h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Aucun relevé de santé pour le moment. Mettez le plugin à jour (version 1.5 ou plus) puis actualisez.'))))),
+    h('p', { class: 'hint muted' }, tr('SuricateWeb relève des faits sur le serveur du site et décide lui-même des seuils d\'alerte. Les sauvegardes ne sont pas surveillées : elles dépendent de la solution que vous utilisez.')));
+}
+
 // ───────────── Sécurité du CMS : intégrité des fichiers et comptes administrateurs ─────────────
 
 const pathItems = (list, tag) => list.map((f) => h('li', {}, h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, f), h('span', { class: 'muted' }, ` · ${tag}`)));
@@ -1819,6 +1854,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     cmsEvery: h('select', { class: 'input', value: String(c.cms?.intervalMin || 720) }, ...[[60, tr('Toutes les heures')], [360, tr('Toutes les 6 heures')], [720, tr('Toutes les 12 heures')], [1440, tr('Toutes les 24 heures')], [10080, tr('Tous les 7 jours')]].map(([v, l]) => h('option', { value: String(v) }, l))),
     cmsSecurity: h('input', { type: 'checkbox', checked: c.cms?.security !== false }),
     cmsCode: h('input', { type: 'checkbox', checked: c.cms?.codeScan !== false }),
+    cmsHealth: h('input', { type: 'checkbox', checked: c.cms?.health !== false }),
     pages: h('textarea', { class: 'input mono', rows: 4, placeholder: tr('/panier | Panier\n/contact\n/mon-compte | Connexion'), value: (c.pages || []).map((p) => (p.label ? `${p.url} | ${p.label}` : p.url)).join('\n') }),
     statusOn: h('input', { type: 'checkbox', checked: !!c.statusPage?.enabled }),
     statusTitle: h('input', { class: 'input', placeholder: tr('Nom affiché sur la page (par défaut : le nom du site)'), maxlength: 80, value: c.statusPage?.title || '' }),
@@ -1890,6 +1926,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     h('div', { class: 'field' }, h('label', {}, tr('Adresse interrogée')), cmsEndpointEl),
     toggle(f.cmsAlerts, tr('Alerter si des mises à jour tardent ou si PHP n’est plus maintenu'), tr('Alerte Telegram quand une mise à jour reste en attente plus longtemps que le délai réglé dans Réglages, ou quand la version de PHP ne reçoit plus de correctifs de sécurité. À couper si vous ne maîtrisez pas ces versions (hébergement mutualisé, site client).')),
     toggle(f.cmsSecurity, tr('Surveiller l’intégrité des fichiers et les comptes administrateurs'), tr('Alerte Telegram si un fichier du noyau ou d’une extension du dépôt officiel ne correspond plus aux sommes de contrôle de wordpress.org, si un fichier PHP apparaît dans le dossier des téléversements, ou si un nouvel administrateur est créé. Sous PrestaShop, seuls les dossiers d’images et de téléversements sont contrôlés. Nécessite la version 1.1 du plugin.')),
+    toggle(f.cmsHealth, tr('Suivre la santé du site (disque, débogage, tâches planifiées…)'), tr('Le plugin relève des faits sur le serveur : espace disque, mode débogage, tâches planifiées en retard, site masqué des moteurs de recherche, HTTPS, mémoire PHP. SuricateWeb alerte quand l\'un d\'eux devient un risque. Les sauvegardes ne sont pas surveillées. Nécessite la version 1.5 du plugin.')),
     toggle(f.cmsCode, tr('Rechercher le code suspect (portes dérobées, code obfusqué)'), tr('Le plugin analyse les fichiers PHP du site (thèmes, extensions, modules, configuration du serveur) et signale les motifs typiques d’une intrusion, ainsi que les fichiers ajoutés ou modifiés hors mise à jour. Seuls le chemin et le nom du motif sont transmis, jamais le contenu. Nécessite la version 1.3 du plugin ; sans effet si la surveillance de sécurité est coupée.')),
     h('p', {}, tr('Téléchargez le plugin '), h('span', { 'data-cms-kind': '' }, ''), tr(', installez-le, activez-le, puis collez le jeton.'),
       h('span', {}, ' '),
@@ -1990,7 +2027,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
           selector: f.selector.value, excludeSelector: f.exclude.value, ignoreRegex: list(f.ignore), images: f.images.checked,
           forbidden: list(f.forbidden), required: list(f.required), userAgent: f.ua.value, timeoutS: Number(f.timeout.value), failThreshold: Number(f.fails.value),
           minChangePct: Number(f.minPct.value), allowedHosts: list(f.allowed, /[,\n]/), headers, notify: f.notify.checked, minSeverity: f.minSev.value,
-          cms: mode === 'domain' ? { type: '' } : { type: f.cmsType.value, token: f.cmsToken.value, path: f.cmsPath.value, intervalMin: Number(f.cmsEvery.value), alerts: f.cmsAlerts.checked, security: f.cmsSecurity.checked, codeScan: f.cmsCode.checked },
+          cms: mode === 'domain' ? { type: '' } : { type: f.cmsType.value, token: f.cmsToken.value, path: f.cmsPath.value, intervalMin: Number(f.cmsEvery.value), alerts: f.cmsAlerts.checked, security: f.cmsSecurity.checked, codeScan: f.cmsCode.checked, health: f.cmsHealth.checked },
           pages: mode === 'domain' ? [] : list(f.pages),
           statusPage: { enabled: mode !== 'domain' && f.statusOn.checked, token: statusToken, title: f.statusTitle.value },
         },

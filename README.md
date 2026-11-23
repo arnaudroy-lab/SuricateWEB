@@ -434,6 +434,25 @@ Le plugin affiche l'état du site **dans l'administration du CMS** (tableau de b
 - Pour couper le widget : retirez le CMS de la fiche du site (le widget répond alors « introuvable »).
 
 
+### Santé du site (plugin 1.5)
+
+Onglet **Santé** des sites WordPress et PrestaShop : des **faits relevés sur le serveur**, jugés par SuricateWeb (les seuils sont dans SuricateWeb, donc modifiables sans mettre à jour le plugin). Le plugin n'envoie que des tailles, des booléens et des durées : jamais un contenu, ni un nom de fichier.
+
+| Contrôle | Alerte |
+|---|---|
+| **Espace disque** | **attention** sous 10 % ou 500 Mo libres, **critique** sous 3 % ou 100 Mo |
+| **Débogage** | **attention** si les erreurs PHP sont affichées aux visiteurs (`WP_DEBUG_DISPLAY`, mode développement PrestaShop) ou si `debug.log` dépasse 50 Mo |
+| **Tâches planifiées** (WP-Cron, WordPress) | **attention** si une tâche a plus d'1 h de retard, **critique** au-delà de 3 jours (publications programmées, mises à jour et sauvegardes planifiées ne partent plus) |
+| **Site masqué des moteurs de recherche** (WordPress) | **attention** : l'option « ne pas indexer » est restée cochée |
+| **HTTPS** | **attention** si l'adresse du site est en HTTP |
+| **Boutique en maintenance** (PrestaShop) | **attention** : les visiteurs voient la page de maintenance |
+| **Réglages à améliorer** : mémoire PHP sous 128 Mo, durée de script sous 30 s, options WordPress chargées à chaque page (1 Mo, **attention** au-delà de 3 Mo), extensions PHP recommandées manquantes | un seul incident groupé, en **info** |
+
+La taille de la base de données est affichée, sans alerte. Un fait que l'hébergeur ne laisse pas lire est simplement absent : jamais « normal » par défaut. Comme pour l'intégrité et le code suspect, un relevé qui échoue **garde le dernier résultat réussi** avec son erreur, et un plugin plus ancien ne perd ni ses versions ni sa sécurité (l'onglet l'invite à se mettre à jour).
+
+- **Les sauvegardes ne sont pas surveillées** : il existe trop de solutions, et un plugin ne peut pas savoir si une copie est réellement restaurable.
+- Le suivi se coupe site par site (*Modifier › WordPress / PrestaShop › Suivre la santé du site*) : ses incidents disparaissent alors sans message « rétabli ». Il fait partie du relevé du CMS (toutes les 12 h par défaut, *Actualiser* pour le relancer).
+
 ### Code suspect (plugin 1.3)
 
 Les sommes de contrôle ne couvrent ni les thèmes sur mesure, ni les extensions premium, ni PrestaShop. Le plugin cherche donc aussi, **dans les fichiers PHP du site**, ce qui ressemble à du code injecté (souvent obfusqué), et suit leurs empreintes d'un relevé à l'autre.
