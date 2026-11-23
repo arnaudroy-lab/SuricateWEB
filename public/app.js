@@ -1454,7 +1454,37 @@ function healthTab(w) {
         ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('tbody', {}, ...checks.map((c) => h('tr', {},
           h('td', {}, c.label), h('td', { class: 'mono' }, c.value), h('td', { style: { textAlign: 'right' } }, h('span', { class: `pill ${HEALTH_PILL[c.level][0]}` }, HEALTH_PILL[c.level][1]())))))))
         : (hl?.error ? null : h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Aucun relevé de santé pour le moment. Mettez le plugin à jour (version 1.5 ou plus) puis actualisez.'))))),
+    w.config.cms.type === 'wordpress' ? hardeningCard(w, hl) : null,
     h('p', { class: 'hint muted' }, tr('SuricateWeb relève des faits sur le serveur du site et décide lui-même des seuils d\'alerte. Les sauvegardes ne sont pas surveillées : elles dépendent de la solution que vous utilisez.')));
+}
+
+/** Carte « Durcissement » (WordPress) : réglages appliqués par le plugin, un par un ou d'un clic pour les mesures sûres. */
+function hardeningCard(w, hl) {
+  const rows = hl?.hardeningRows;
+  const head = h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Durcissement')), h('span', { class: 'muted' }, tr('réglages appliqués par le plugin, un par un ou d\'un clic'))));
+  if (!rows) {
+    return h('div', { class: 'card', style: { marginBottom: '16px' } }, head, h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } },
+      hl?.checkedAt ? tr('Le plugin installé sur le site ne propose pas encore le durcissement : mettez-le à jour (version 1.6 ou plus), puis actualisez.') : tr('Le durcissement apparaît après le premier relevé de santé.'))));
+  }
+  const apply = async (body, done) => {
+    const r = await api(`/watches/${w.id}/cms/harden`, { method: 'POST', body });
+    toast(r.ok ? done : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
+    route();
+  };
+  const pending = rows.filter((m) => m.safe && !m.effective).length;
+  const row = (m) => h('label', { class: 'toggle-row' },
+    h('div', { class: 'tt' }, h('b', {}, m.label, ' ', h('span', { class: `pill ${m.safe ? 'ok' : 'mute'}` }, m.safe ? tr('Recommandé') : tr('Optionnel')), m.native ? [' ', h('span', { class: 'pill mute' }, tr('Déjà actif sur le site'))] : null), h('span', {}, m.desc)),
+    h('span', { class: 'switch' }, h('input', { type: 'checkbox', checked: m.effective, disabled: m.native, onchange: guard(async (e) => {
+      e.target.disabled = true;
+      await apply({ measures: { [m.id]: e.target.checked } }, e.target.checked ? tr('Mesure activée') : tr('Mesure retirée'));
+    }) }), h('i')));
+  return h('div', { class: 'card', style: { marginBottom: '16px' } }, head,
+    h('div', { class: 'card-pad' },
+      h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn primary', disabled: !pending, onclick: guard(async (e) => { e.currentTarget.disabled = true; await apply({ preset: 'safe' }, tr('Réglages sûrs appliqués')); }) }, ic('shield'), tr('Appliquer les réglages sûrs')),
+        h('span', { class: 'muted' }, pending ? plural(pending, tr('mesure recommandée à activer'), tr('mesures recommandées à activer')) : tr('Toutes les mesures recommandées sont actives.'))),
+      ...rows.map(row),
+      h('p', { class: 'hint muted', style: { marginBottom: 0 } }, tr('Aucun fichier du site n\'est modifié (ni wp-config.php, ni .htaccess) : chaque mesure est appliquée par le plugin à chaque chargement et se retire en la décochant. Aucune ne bloque un administrateur connecté.'))));
 }
 
 // ───────────── Sécurité du CMS : intégrité des fichiers et comptes administrateurs ─────────────

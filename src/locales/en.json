@@ -408,5 +408,20 @@
  "point": "item",
  "points": "items",
  "{v1} trop ancien : mettez-le à jour (version 1.5 ou plus) pour suivre la santé du site.": "{v1} too old: update it (version 1.5 or later) to monitor site health.",
- "Relevé de santé impossible": "Health reading failed"
+ "Relevé de santé impossible": "Health reading failed",
+ "Éditeur de fichiers désactivé": "File editor disabled",
+ "Retire l'éditeur de thèmes et d'extensions du tableau de bord : un compte administrateur piraté ne peut plus y écrire du code PHP en deux clics. Les installations et mises à jour continuent de fonctionner.": "Removes the theme and plugin editor from the dashboard: a hacked administrator account can no longer write PHP code there in two clicks. Installs and updates keep working.",
+ "Version de WordPress masquée": "WordPress version hidden",
+ "Retire la version de WordPress du code des pages et des flux : les robots qui cherchent les sites vulnérables à une version précise ne la lisent plus.": "Removes the WordPress version from page and feed code: bots hunting for sites vulnerable to a specific version can no longer read it.",
+ "Messages de connexion neutres": "Neutral login messages",
+ "Affiche toujours « Identifiant ou mot de passe incorrect », sans révéler si l'identifiant existe.": "Always shows “Incorrect username or password”, without revealing whether the username exists.",
+ "Liste des comptes non publique": "Account list not public",
+ "Bloque ?author=1 et l'API REST des utilisateurs pour les visiteurs non connectés : on ne peut plus deviner les identifiants de connexion. À éviter si un thème ou une application lit la liste des auteurs par l'API.": "Blocks ?author=1 and the REST users API for logged-out visitors: login names can no longer be guessed. Avoid it if a theme or app reads the author list through the API.",
+ "XML-RPC désactivé": "XML-RPC disabled",
+ "Ferme xmlrpc.php, très utilisé pour tester des mots de passe par milliers. À éviter avec Jetpack, l'application mobile WordPress ou la publication à distance.": "Closes xmlrpc.php, widely used to try thousands of passwords. Avoid it with Jetpack, the WordPress mobile app or remote publishing.",
+ "Le durcissement n'est disponible que pour WordPress": "Hardening is only available for WordPress",
+ "Mesure de durcissement inconnue : {id}": "Unknown hardening measure: {id}",
+ "Aucune mesure à appliquer": "No measure to apply",
+ "Le site n'a pas répondu": "The site did not respond",
+ "Plugin trop ancien : mettez-le à jour (version 1.6 ou plus) pour durcir le site.": "Plugin too old: update it (version 1.6 or later) to harden the site."
 }

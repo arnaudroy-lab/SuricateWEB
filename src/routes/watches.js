@@ -2,7 +2,7 @@
 import { settingsFor, updateWatch, deleteWatch, normalizeConfig, closeOutage, listMaintenance, recentChecks, markWatchAlertsRead } from '../db.js';
 import { enqueue } from '../scheduler.js';
 import { resolvePage } from '../pages.js';
-import { phpSupport, assessHealth } from '../cms-alerts.js';
+import { phpSupport, assessHealth, hardeningRows } from '../cms-alerts.js';
 import { removeWatchShots, pruneWatchShots } from '../screenshot.js';
 import { fetchPage, analyze, describeError } from '../checker.js';
 import { bus } from '../events.js';
@@ -42,7 +42,7 @@ export default function register({ route }) {
         server: state.server || '', scripts: state.scripts?.length ?? null, linkHosts: state.linkHosts?.length ?? null,
         baseline: !!state.baseline,
       },
-      cms: state.cms ? { ...state.cms, phpSupport: phpSupport(state.cms.php), ...(state.cms.health?.checkedAt ? { health: { ...state.cms.health, checks: assessHealth(state.cms.health, state.cms.cms) } } : {}) } : null,
+      cms: state.cms ? { ...state.cms, phpSupport: phpSupport(state.cms.php), ...(state.cms.health?.checkedAt ? { health: { ...state.cms.health, checks: assessHealth(state.cms.health, state.cms.cms), hardeningRows: hardeningRows(state.cms.health.hardening) } } : {}) } : null,
       pages: w.config.pages.map((p) => {
         const href = resolvePage(w.url, p);
         const st = href ? state.pages?.[href] : null;

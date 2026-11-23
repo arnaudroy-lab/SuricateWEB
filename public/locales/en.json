@@ -884,5 +884,20 @@
  "Aucun relevé de santé pour le moment. Mettez le plugin à jour (version 1.5 ou plus) puis actualisez.": "No health reading yet. Update the plugin (version 1.5 or later), then refresh.",
  "SuricateWeb relève des faits sur le serveur du site et décide lui-même des seuils d'alerte. Les sauvegardes ne sont pas surveillées : elles dépendent de la solution que vous utilisez.": "SuricateWeb reads facts from the site's server and sets the alert thresholds itself. Backups are not monitored: they depend on the solution you use.",
  "Suivre la santé du site (disque, débogage, tâches planifiées…)": "Monitor site health (disk, debugging, scheduled tasks…)",
- "Le plugin relève des faits sur le serveur : espace disque, mode débogage, tâches planifiées en retard, site masqué des moteurs de recherche, HTTPS, mémoire PHP. SuricateWeb alerte quand l'un d'eux devient un risque. Les sauvegardes ne sont pas surveillées. Nécessite la version 1.5 du plugin.": "The plugin reads facts from the server: disk space, debug mode, overdue scheduled tasks, site hidden from search engines, HTTPS, PHP memory. SuricateWeb alerts when one becomes a risk. Backups are not monitored. Requires plugin version 1.5."
+ "Le plugin relève des faits sur le serveur : espace disque, mode débogage, tâches planifiées en retard, site masqué des moteurs de recherche, HTTPS, mémoire PHP. SuricateWeb alerte quand l'un d'eux devient un risque. Les sauvegardes ne sont pas surveillées. Nécessite la version 1.5 du plugin.": "The plugin reads facts from the server: disk space, debug mode, overdue scheduled tasks, site hidden from search engines, HTTPS, PHP memory. SuricateWeb alerts when one becomes a risk. Backups are not monitored. Requires plugin version 1.5.",
+ "Durcissement": "Hardening",
+ "réglages appliqués par le plugin, un par un ou d'un clic": "settings applied by the plugin, one by one or in one click",
+ "Le plugin installé sur le site ne propose pas encore le durcissement : mettez-le à jour (version 1.6 ou plus), puis actualisez.": "The plugin installed on the site does not offer hardening yet: update it (version 1.6 or later), then refresh.",
+ "Le durcissement apparaît après le premier relevé de santé.": "Hardening appears after the first health reading.",
+ "Recommandé": "Recommended",
+ "Optionnel": "Optional",
+ "Déjà actif sur le site": "Already on in the site",
+ "Mesure activée": "Measure turned on",
+ "Mesure retirée": "Measure removed",
+ "Réglages sûrs appliqués": "Safe settings applied",
+ "Appliquer les réglages sûrs": "Apply safe settings",
+ "mesure recommandée à activer": "recommended measure to turn on",
+ "mesures recommandées à activer": "recommended measures to turn on",
+ "Toutes les mesures recommandées sont actives.": "All recommended measures are on.",
+ "Aucun fichier du site n'est modifié (ni wp-config.php, ni .htaccess) : chaque mesure est appliquée par le plugin à chaque chargement et se retire en la décochant. Aucune ne bloque un administrateur connecté.": "No site file is modified (neither wp-config.php nor .htaccess): each measure is applied by the plugin on every load and is removed by unticking it. None blocks a logged-in administrator."
 }

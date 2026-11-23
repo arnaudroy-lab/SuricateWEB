@@ -453,6 +453,23 @@ La taille de la base de données est affichée, sans alerte. Un fait que l'hébe
 - **Les sauvegardes ne sont pas surveillées** : il existe trop de solutions, et un plugin ne peut pas savoir si une copie est réellement restaurable.
 - Le suivi se coupe site par site (*Modifier › WordPress / PrestaShop › Suivre la santé du site*) : ses incidents disparaissent alors sans message « rétabli ». Il fait partie du relevé du CMS (toutes les 12 h par défaut, *Actualiser* pour le relancer).
 
+### Durcissement en un clic (WordPress, plugin 1.6)
+
+Dans l'onglet **Santé**, la carte **Durcissement** applique sur le site quelques réglages de sécurité, **un par un** ou d'un clic (**Appliquer les réglages sûrs**). SuricateWeb envoie l'ordre au plugin (avec son jeton), le plugin l'enregistre, puis le relevé suivant relit l'état réel du site : l'interface n'affiche jamais ce qu'on espérait, seulement ce que le site confirme.
+
+| Mesure | Effet | Réglage sûr |
+|---|---|---|
+| **Éditeur de fichiers désactivé** | plus d'éditeur de thèmes et d'extensions dans le tableau de bord : un compte administrateur piraté ne peut plus y écrire du PHP | oui |
+| **Version de WordPress masquée** | retirée du code des pages et des flux | oui |
+| **Messages de connexion neutres** | « Identifiant ou mot de passe incorrect », sans révéler si l'identifiant existe | oui |
+| **Liste des comptes non publique** | `?author=1` et l'API REST des utilisateurs fermés aux visiteurs non connectés | oui |
+| **XML-RPC désactivé** | `xmlrpc.php` fermé (tests de mots de passe en masse) ; à éviter avec Jetpack, l'application mobile WordPress ou la publication à distance | **non**, à cocher en connaissance de cause |
+
+- **Aucun fichier du site n'est modifié** (ni `wp-config.php`, ni `.htaccess`) : chaque mesure est un filtre appliqué par le plugin à chaque chargement. Pour la retirer, décochez-la (ou désactivez le plugin). Aucune ne bloque un administrateur connecté.
+- Une mesure **déjà active sur le site** (réglée dans `wp-config.php` ou par un autre plugin) est signalée « Déjà actif sur le site » et reste intacte.
+- Le plugin ignore tout identifiant de mesure qu'il ne connaît pas : un SuricateWeb plus récent ne peut rien activer d'imprévu.
+- Le droit d'**écrire sur le site** est exigé (`site:update`) : un invité en lecture ne peut pas durcir un site. L'état se lit avec le relevé de santé (si le suivi de la santé est coupé pour le site, la carte attend qu'il soit réactivé). PrestaShop : pas de durcissement pour l'instant.
+
 ### Code suspect (plugin 1.3)
 
 Les sommes de contrôle ne couvrent ni les thèmes sur mesure, ni les extensions premium, ni PrestaShop. Le plugin cherche donc aussi, **dans les fichiers PHP du site**, ce qui ressemble à du code injecté (souvent obfusqué), et suit leurs empreintes d'un relevé à l'autre.
