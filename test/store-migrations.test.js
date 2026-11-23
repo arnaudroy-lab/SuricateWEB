@@ -21,12 +21,12 @@ const columns = (db, table) => db.all(`PRAGMA table_info(${table})`).map((c) => 
 
 test('migrations : base neuve → toutes les tables, migration 1 enregistrée', async () => {
   const db = fresh();
-  assert.deepEqual(await migrate(db), [1, 2, 3]);
+  assert.deepEqual(await migrate(db), [1, 2, 3, 4]);
   assert.deepEqual(tables(db), [
-    'alerts', 'checks', 'daily_stats', 'maintenance', 'outages', 'schema_migrations', 'screenshots', 'settings', 'site_groups', 'snapshots', 'watches',
+    'alerts', 'checks', 'cms_activity', 'daily_stats', 'maintenance', 'outages', 'schema_migrations', 'screenshots', 'settings', 'site_groups', 'snapshots', 'watches',
   ]);
   const rows = db.all('SELECT version, name FROM schema_migrations');
-  assert.deepEqual(rows.map((r) => ({ ...r })), [{ version: 1, name: 'initial' }, { version: 2, name: 'accounts' }, { version: 3, name: 'shot-diff' }]);
+  assert.deepEqual(rows.map((r) => ({ ...r })), [{ version: 1, name: 'initial' }, { version: 2, name: 'accounts' }, { version: 3, name: 'shot-diff' }, { version: 4, name: 'cms-activity' }]);
   // Toutes les colonnes apparues au fil des versions sont là.
   for (const c of ['next_shot', 'shot_error', 'group_id', 'position', 'next_cms']) assert.ok(columns(db, 'watches').includes(c), c);
   assert.ok(columns(db, 'screenshots').includes('final_url') && columns(db, 'screenshots').includes('page_title'));
@@ -38,7 +38,7 @@ test('migrations : rejouées, elles ne font rien', async () => {
   const db = fresh();
   await migrate(db);
   assert.deepEqual(await migrate(db), []);
-  assert.equal(db.get('SELECT COUNT(*) n FROM schema_migrations').n, 3);
+  assert.equal(db.get('SELECT COUNT(*) n FROM schema_migrations').n, 4);
   db.close();
 });
 
@@ -57,7 +57,7 @@ test('migrations : une installation 1.3.x (anciennes colonnes, sans table de sui
     INSERT INTO watches(name, url, created_at) VALUES('Un', 'https://un.test/', 1), ('Deux', 'https://deux.test/', 2);
     INSERT INTO alerts(watch_id, ts, severity, type, title) VALUES(2, 5, 'warning', 'x', 'conservée');
   `);
-  assert.deepEqual(await migrate(db), [1, 2, 3]);
+  assert.deepEqual(await migrate(db), [1, 2, 3, 4]);
   // Les sites existants gardent leur ordre de création (position = id), restent « sans groupe » et rejoignent le compte implicite (1).
   const sites = db.all('SELECT id, name, position, group_id, next_shot, next_cms, account_id FROM watches ORDER BY id').map((r) => ({ ...r }));
   assert.deepEqual(sites, [

@@ -389,7 +389,7 @@ Le cœur produit ses textes en français (langue par défaut) ou en anglais, sel
 | `site:check` | `POST /api/watches/:id/check` · `POST /api/watches/:id/screenshot` · `POST /api/watches/:id/cms` |
 | `site:create` | `POST /api/watches` · `POST /api/test-url` |
 | `site:delete` | `DELETE /api/watches/:id` |
-| `site:read` | `GET /api/watches` · `GET /api/watches/:id` · `GET /api/watches/:id/uptime` · `GET /api/watches/:id/series` · `GET /api/watches/:id/domain` · `GET /api/watches/:id/history` · `GET /api/snapshots/:id/diff` · `GET /api/snapshots/:id/text` · `GET /api/watches/:id/screenshots` · `GET /api/screenshots/:id/image` · `GET /api/events` |
+| `site:read` | `GET /api/watches` · `GET /api/watches/:id` · `GET /api/watches/:id/uptime` · `GET /api/watches/:id/series` · `GET /api/watches/:id/domain` · `GET /api/watches/:id/history` · `GET /api/snapshots/:id/diff` · `GET /api/snapshots/:id/text` · `GET /api/watches/:id/screenshots` · `GET /api/watches/:id/activity` (journal d’activité : IP tronquées, 90 jours) · `GET /api/screenshots/:id/image` · `GET /api/events` |
 | `site:update` | `PUT /api/watches/:id` · `POST /api/watches/:id/toggle` · `POST /api/watches/:id/cms/harden` (durcissement : modifie le site surveillé via son plugin) |
 | *(aucune : connexion seule)* | `GET /api/me` |
 

@@ -470,6 +470,29 @@ Dans l'onglet **Santé**, la carte **Durcissement** applique sur le site quelque
 - Le plugin ignore tout identifiant de mesure qu'il ne connaît pas : un SuricateWeb plus récent ne peut rien activer d'imprévu.
 - Le droit d'**écrire sur le site** est exigé (`site:update`) : un invité en lecture ne peut pas durcir un site. L'état se lit avec le relevé de santé (si le suivi de la santé est coupé pour le site, la carte attend qu'il soit réactivé). PrestaShop : pas de durcissement pour l'instant.
 
+### Journal d'activité (WordPress, plugin 1.7)
+
+Onglet **Activité** : ce qui s'est passé sur le site, relevé par le plugin. **Connexions** réussies et échouées, **comptes** créés, supprimés, changés de rôle ou au mot de passe réinitialisé, **extensions** installées, activées, désactivées, supprimées ou mises à jour, thème changé, WordPress mis à jour. Un filtre par groupe (Connexions, Comptes, Extensions) et la date, le compte et la source de chaque événement.
+
+**Deux alertes** en sortent :
+
+| Signal | Alerte |
+|---|---|
+| **30 échecs de connexion ou plus en une heure** (tous comptes et toutes sources) | **attention** : attaque par essais de mots de passe probable |
+| **Une connexion réussie dans les 6 dernières heures, précédée d'au moins 10 échecs de la même source dans l'heure** | **critique** : le mot de passe a peut-être été deviné |
+
+**Vie privée, par construction**
+
+- L'adresse IP n'est **jamais stockée en entier** : le plugin la tronque avant d'écrire (IPv4 au /24, `203.0.113.0` ; IPv6 au /48) et n'y ajoute qu'une **empreinte salée de 12 caractères** (propre au site) pour reconnaître la même source d'un événement à l'autre. Ni SuricateWeb ni le plugin ne peuvent retrouver l'adresse complète, et l'empreinte ne sort pas du serveur de SuricateWeb.
+- L'adresse prise en compte est `REMOTE_ADDR` : les en-têtes `X-Forwarded-For` se falsifient. Derrière un proxy ou un CDN, tous les visiteurs auraient la même source ; définir `SURICATEWEB_TRUST_PROXY` dans `wp-config.php` pour lire cet en-tête (à ne faire que si le proxy le réécrit).
+- Un identifiant saisi lors d'un **échec** de connexion n'est gardé que s'il correspond à un compte existant : on tape parfois son mot de passe dans ce champ. Les autres échecs sont enregistrés sans nom.
+- **90 jours** de conservation (plafond de 500 événements côté plugin), puis effacement automatique, côté site comme côté SuricateWeb.
+- **Activable site par site** (*Modifier › WordPress / PrestaShop › Tenir le journal d'activité*, coché par défaut). Le plugin ne consigne rien tant que SuricateWeb ne le lui a pas demandé ; en décochant, SuricateWeb l'éteint et **efface** sa copie et celle du site.
+- Pendant une attaque, les échecs au-delà de 50 par 10 minutes sont **regroupés** en un événement unique avec leur compteur, pour ne pas saturer la base du site.
+- Comme dans l'export de données du compte (version hébergée), ces événements sont des données personnelles : ils y figurent et disparaissent avec le site. Informez les utilisateurs du site (mentions légales) que les connexions sont journalisées.
+
+PrestaShop n'a pas de journal d'activité pour l'instant.
+
 ### Code suspect (plugin 1.3)
 
 Les sommes de contrôle ne couvrent ni les thèmes sur mesure, ni les extensions premium, ni PrestaShop. Le plugin cherche donc aussi, **dans les fichiers PHP du site**, ce qui ressemble à du code injecté (souvent obfusqué), et suit leurs empreintes d'un relevé à l'autre.

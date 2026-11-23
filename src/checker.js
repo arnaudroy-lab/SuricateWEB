@@ -727,14 +727,15 @@ async function runCheckNow(id) {
     const updates = cfg.cms.alerts !== false;
     const security = cfg.cms.security !== false;
     const health = cfg.cms.health !== false;
-    const groups = { security, health, updates };
+    const activity = cfg.cms.activity !== false;
+    const groups = { security, health, updates, activity };
     // Un groupe d'alertes désactivé : ses incidents disparaissent sans message « rétabli ».
     for (const k of Object.keys(state.incidents || {})) {
       if (catOf(k) === 'cms' && !groups[cmsIncidentGroup(k)]) delete state.incidents[k];
     }
-    if ((updates || security || health) && state.cms?.core && state.cms.checkedAt) {
+    if ((updates || security || health || activity) && state.cms?.core && state.cms.checkedAt) {
       evaluated.add('cms');
-      for (const i of cmsIncidents(state.cms, { afterDays: settings.cmsAfterDays, now, updates, security, health })) inc(i.key, i.severity, i.title, i.detail, i.count);
+      for (const i of cmsIncidents(state.cms, { afterDays: settings.cmsAfterDays, now, updates, security, health, activity })) inc(i.key, i.severity, i.title, i.detail, i.count);
     }
   } else {
     // CMS retiré : ses incidents disparaissent sans message « rétabli ».

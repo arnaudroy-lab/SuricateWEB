@@ -327,7 +327,7 @@ export const defaultConfig = () => ({
   // Connecteur WordPress / PrestaShop : SuricateWeb interroge le plugin (intervalMin en minutes).
   // alerts : mises à jour en retard / PHP en fin de support · security : intégrité des fichiers et comptes administrateurs.
   // codeScan : recherche de code suspect (porte dérobée, code obfusqué) dans le groupe « security » ; désactivable seul (lecture de tous les fichiers PHP du site).
-  cms: { type: '', token: '', path: '', intervalMin: 720, alerts: true, security: true, codeScan: true, health: true },
+  cms: { type: '', token: '', path: '', intervalMin: 720, alerts: true, security: true, codeScan: true, health: true, activity: true },
   // Pages supplémentaires du même site (panier, contact, connexion…) : [{ url, label }], 10 au plus.
   pages: [],
   // Page de statut publique en lecture seule, à l'adresse /status/<jeton>.
@@ -418,6 +418,8 @@ export function normalizeConfig(input = {}) {
     codeScan: rawCms.codeScan !== false,
     // Santé du site (disque, débogage, tâches planifiées…) : relevé et alertes de configuration (plugin ≥ 1.5).
     health: rawCms.health !== false,
+    // Journal d'activité (plugin WordPress ≥ 1.7) : connexions, comptes, extensions ; IP tronquées, 90 jours. Activable site par site.
+    activity: rawCms.activity !== false,
     // Jeton du widget (état en lecture seule affiché dans l'administration du CMS) : aléatoire, distinct du jeton du plugin.
     widgetToken: /^[A-Za-z0-9_-]{16,64}$/.test(String(rawCms.widgetToken ?? '')) ? String(rawCms.widgetToken) : '',
   };
@@ -601,6 +603,36 @@ export async function setCmsReport(id, cms, nextCms) {
 
 /** Un relevé du plugin vient d'aboutir : le prochain contrôle part sans attendre, pour que ses alertes ne tardent pas. */
 export const wakeWatch = async (id) => db.run('UPDATE watches SET next_run = 0 WHERE id = ? AND enabled = 1 AND next_run > ?', [id, Date.now()]);
+
+// ───────────── Journal d'activité du CMS (src/store/migrations/0004-cms-activity.js) ─────────────
+export const ACTIVITY_KEEP_DAYS = 90;
+const ACTIVITY_COLS = 'event_id AS "id", ts, kind, actor, target, role, ip, ip_hash AS "ipHash", n';
+
+/** Enregistre des événements relevés (idempotent : un événement déjà connu est remplacé, son compteur ayant pu grandir), puis purge ce qui a plus de 90 jours. */
+export async function saveCmsActivity(watchId, events, now = Date.now()) {
+  for (const e of events) {
+    await db.run(
+      'INSERT INTO cms_activity(watch_id, event_id, ts, kind, actor, target, role, ip, ip_hash, n) VALUES(?,?,?,?,?,?,?,?,?,?) '
+      + 'ON CONFLICT(watch_id, event_id) DO UPDATE SET ts = excluded.ts, kind = excluded.kind, actor = excluded.actor, target = excluded.target, role = excluded.role, ip = excluded.ip, ip_hash = excluded.ip_hash, n = excluded.n',
+      [watchId, e.id, e.ts, e.kind, e.actor, e.target, e.role, e.ip, e.ipHash, e.n],
+    );
+  }
+  await db.run('DELETE FROM cms_activity WHERE watch_id = ? AND ts < ?', [watchId, now - ACTIVITY_KEEP_DAYS * DAY_MS]);
+}
+
+/** Heure du dernier événement connu (0 : aucun) : le prochain relevé reprend à cet instant. */
+export const lastCmsActivityTs = async (watchId) => Number((await db.get('SELECT COALESCE(MAX(ts), 0) AS ts FROM cms_activity WHERE watch_id = ?', [watchId])).ts);
+
+/** Événements récents, du plus récent au plus ancien ; `kinds` filtre (liste de types), `since` borne la date. */
+export async function listCmsActivity(watchId, { kinds = null, since = 0, limit = 200 } = {}) {
+  const marks = kinds?.length ? ` AND kind IN (${kinds.map(() => '?').join(',')})` : '';
+  const rows = await db.all(`SELECT ${ACTIVITY_COLS} FROM cms_activity WHERE watch_id = ? AND ts >= ?${marks} ORDER BY ts DESC, event_id DESC LIMIT ?`, [watchId, since, ...(kinds?.length ? kinds : []), limit]);
+  return rows.map((r) => ({ ...r, id: Number(r.id), ts: Number(r.ts), n: Number(r.n) }));
+}
+
+export const purgeCmsActivity = (watchId) => db.run('DELETE FROM cms_activity WHERE watch_id = ?', [watchId]);
+
+export const countCmsActivity = async (watchId) => Number((await db.get('SELECT COUNT(*) AS n FROM cms_activity WHERE watch_id = ?', [watchId])).n);
 
 export const deleteWatch = async (id) => (await db.run('DELETE FROM watches WHERE id = ?', [id])).changes > 0;
 
