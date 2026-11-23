@@ -471,6 +471,8 @@ dl.kv dd { margin: 0; word-break: break-word; text-align: right; }
 .alert { display: flex; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
 .alert:last-child { border-bottom: 0; }
 .alert.unread { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+/* Les lignes (fond teinté des non lues, en-tête du jour) ne doivent pas dépasser des coins arrondis de la carte. `clip` ne crée pas de zone de défilement. */
+.card.alerts { overflow: hidden; overflow: clip; }
 .sev { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 17px; flex: none; }
 .sev.critical { background: var(--crit-soft); color: var(--crit); }
 .sev.warning { background: var(--warn-soft); color: var(--warn); }
@@ -769,6 +771,18 @@ textarea.input { height: auto; }
 @media (max-width: 860px) {
   .sidebar { z-index: 30; }
   .sidebar::before { background: var(--surface); }
+}
+
+/* Téléphone : aucun flou « verre ». Sur Android, Chrome compose chaque backdrop-filter sur sa propre texture, limitée en taille : une page haute
+   (une alerte avec des dizaines d'adresses, la liste des alertes) la dépasse, le navigateur abandonne des couches et la barre du bas, le bandeau et
+   le sélecteur de langue disparaissent, avec des rectangles qui dépassent des cartes. Les cartes gardent un fond presque opaque, les éléments
+   FIXES (bandeau, barre du bas, langue) un fond plein : rien ne défile derrière eux, et leur lisibilité ne dépendait déjà pas du flou. */
+@media (max-width: 860px) {
+  .sw-glass, .card, .pv, .btn, .toolbar:not(.sub), .tabs, .health, .modal, .drawer, .overlay, .sidebar::before, .brand, .side-foot .lang-select {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .sw-glass, .card, .pv, .toolbar:not(.sub), .tabs, .health, .modal, .drawer { background: var(--sw-glass-modal); }
+  .brand, .side-foot .lang-select { background: var(--surface); }
 }
 
 /* ───── Sélecteur de langue ───── */

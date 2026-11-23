@@ -1818,7 +1818,7 @@ const SEV_ICON = { critical: 'alert', warning: 'alert', info: 'info', recovery: 
 const SEV_LABEL = { critical: tr('Critique'), warning: tr('Attention'), info: tr('Info'), recovery: tr('Rétabli') };
 
 function alertList(alerts, showSite = true) {
-  const box = h('div', { class: 'card' });
+  const box = h('div', { class: 'card alerts' }); // « alerts » : rogne les lignes teintées aux coins arrondis de la carte
   let day = '';
   for (const a of alerts) {
     const d = new Date(a.ts).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
