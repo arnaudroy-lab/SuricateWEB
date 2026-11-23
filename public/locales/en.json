@@ -918,5 +918,14 @@
  "Compte": "Account",
  "Source": "Source",
  "Tenir le journal d'activité (WordPress)": "Keep an activity log (WordPress)",
- "Le plugin consigne les connexions réussies et échouées, les comptes créés ou modifiés, les extensions installées, activées ou supprimées. Adresses IP tronquées (jamais complètes), 90 jours, effacé quand vous décochez. SuricateWeb alerte sur une attaque par mots de passe, et surtout quand l'une réussit. Nécessite la version 1.7 du plugin.": "The plugin records successful and failed logins, accounts created or changed, and plugins installed, activated or deleted. IP addresses are truncated (never complete), kept 90 days, erased when you untick. SuricateWeb alerts on a password attack, and above all when one succeeds. Requires plugin version 1.7."
+ "Le plugin consigne les connexions réussies et échouées, les comptes créés ou modifiés, les extensions installées, activées ou supprimées. Adresses IP tronquées (jamais complètes), 90 jours, effacé quand vous décochez. SuricateWeb alerte sur une attaque par mots de passe, et surtout quand l'une réussit. Nécessite la version 1.7 du plugin.": "The plugin records successful and failed logins, accounts created or changed, and plugins installed, activated or deleted. IP addresses are truncated (never complete), kept 90 days, erased when you untick. SuricateWeb alerts on a password attack, and above all when one succeeds. Requires plugin version 1.7.",
+ "Le plugin installé est trop ancien pour afficher le widget : mettez-le à jour (version 1.4 ou plus).": "The installed plugin is too old to show the widget: update it (version 1.4 or later).",
+ "Aucune adresse publique de SuricateWeb : renseignez « Adresse de SuricateWeb » dans les Réglages, puis actualisez.": "No public SuricateWeb address: fill in “SuricateWeb address” in Settings, then refresh.",
+ "Le site a refusé la liaison (HTTP {status}). SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l'adresse ci-dessous dans le plugin.": "The site refused the link (HTTP {status}). SuricateWeb retries in 30 minutes; you can also paste the address below into the plugin.",
+ "Liaison impossible : {error}. SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l'adresse ci-dessous dans le plugin.": "Link failed: {error}. SuricateWeb retries in 30 minutes; you can also paste the address below into the plugin.",
+ "Pas encore tenté : cliquez sur « Actualiser » (la liaison se fait à chaque relevé).": "Not tried yet: click “Refresh” (the link is made at every reading).",
+ "Relié : l'administration du site affiche son état.": "Linked: the site's admin shows its status.",
+ "Widget du tableau de bord": "Dashboard widget",
+ "Relié": "Linked",
+ "Non relié": "Not linked"
 }

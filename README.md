@@ -363,7 +363,7 @@ Le relevé se fait **depuis le site**, là où ces informations existent : un pe
 
 1. **Modifier** le site, bloc **WordPress / PrestaShop** : choisissez le CMS. Un **jeton** aléatoire est généré (boutons **Générer** et **Copier**), et l'**adresse interrogée** s'affiche. Renseignez le **Dossier** seulement si le CMS n'est pas à la racine du domaine (`blog` pour `exemple.fr/blog`) et la **fréquence du relevé** : 1 h, 6 h, **12 h (par défaut)**, 24 h ou 7 jours. Enregistrez.
 2. **Téléchargez le plugin** (liens dans le même bloc, ou dans l'onglet Mises à jour tant qu'aucun relevé n'a eu lieu), installez-le et activez-le.
-3. Collez le jeton dans les réglages du plugin (WordPress : *Réglages › SuricateWeb* ; PrestaShop : *Modules › Gestionnaire de modules › SuricateWeb › Configurer*).
+3. Collez le jeton dans les réglages du plugin (WordPress : *Outils › SuricateWeb › Réglages* ; PrestaShop : *Modules › Gestionnaire de modules › SuricateWeb › Configurer*).
 4. Ouvrez l'onglet **Mises à jour** et cliquez sur **Actualiser**.
 
 **Mise à jour du plugin** : un plugin installé avant la version 1.1 continue de fournir les versions, mais pas l'intégrité des fichiers ni les administrateurs (ni, avant la 1.3, la recherche de code suspect) ; l'onglet *Sécurité* indique alors « plugin trop ancien ». Remplacez le plugin par la nouvelle archive (le jeton est conservé).
@@ -430,6 +430,8 @@ Le plugin affiche l'état du site **dans l'administration du CMS** (tableau de b
 
 - **Liaison automatique** : au relevé suivant, SuricateWeb donne au plugin l'adresse de son widget (`POST …/suricateweb/v1/link`, avec le jeton du plugin). Rien à configurer, à condition que l'**adresse publique de l'instance** soit renseignée. Un plugin plus ancien est laissé tranquille.
 - **Sans connexion, par jeton** : le widget est lu sur `/widget/<jeton>.json`, un jeton aléatoire **distinct** de celui du plugin (le jeton du plugin n'ouvre pas le widget, et inversement). Réponse en lecture seule : compteurs seulement, **jamais le texte d'une alerte**, ni jeton ni adresse interne. 60 requêtes par minute et par adresse ; `no-store`, `noindex`.
+- **Page du plugin (WordPress ≥ 1.8)** : *Outils › SuricateWeb* (l'ancienne adresse sous Réglages y redirige). Deux onglets : **Données du site** (connexion à SuricateWeb avec le **dernier relevé**, état du site en grand, ce que le plugin voit sur le serveur, durcissement) et **Réglages** (jeton, et l'adresse du widget à coller à la main en dernier recours).
+- **La liaison se fait au relevé du CMS**, pas à l'installation du plugin : au plus 12 heures par défaut. Après avoir mis le plugin à jour ou saisi le jeton, ouvrez le site dans SuricateWeb › *Mises à jour* › **Actualiser** pour la faire tout de suite. La carte *Widget du tableau de bord* de cet onglet dit si le site est relié, et sinon **pourquoi** (plugin trop ancien, adresse publique de SuricateWeb absente, refus du site) ; en cas d'échec, SuricateWeb réessaie sous 30 minutes. Le POST de liaison suit les redirections du même site (http → https…), comme les lectures.
 - **Côté CMS** : le plugin lit le widget avec un délai de 3 secondes, sans suivre de redirection (adresses internes refusées sous WordPress), garde la réponse 5 minutes et n'affiche que des valeurs validées et échappées. Si SuricateWeb ne répond pas, le tableau de bord le dit sans ralentir.
 - Pour couper le widget : retirez le CMS de la fiche du site (le widget répond alors « introuvable »).
 

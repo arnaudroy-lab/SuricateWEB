@@ -452,5 +452,6 @@
  "Relevé du journal impossible": "Activity log reading failed",
  "Le journal d'activité n'est disponible que pour WordPress": "The activity log is only available for WordPress",
  "source": "source",
- "sources": "sources"
+ "sources": "sources",
+ "Liaison impossible": "Link failed"
 }

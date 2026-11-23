@@ -1380,6 +1380,27 @@ function phpPill(sup) {
   return null;
 }
 
+/** Carte « Widget du tableau de bord » : le site est-il relié, sinon pourquoi, et l'adresse à coller à la main dans le plugin en dernier recours. */
+function widgetLinkCard(w, report) {
+  const l = report.widgetLink;
+  const url = report.widgetUrl;
+  const reasons = {
+    plugin_old: tr('Le plugin installé est trop ancien pour afficher le widget : mettez-le à jour (version 1.4 ou plus).'),
+    no_base_url: tr('Aucune adresse publique de SuricateWeb : renseignez « Adresse de SuricateWeb » dans les Réglages, puis actualisez.'),
+    refused: tr('Le site a refusé la liaison (HTTP {status}). SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l\'adresse ci-dessous dans le plugin.', { status: l?.status ?? '?' }),
+    error: tr('Liaison impossible : {error}. SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l\'adresse ci-dessous dans le plugin.', { error: l?.error || '?' }),
+  };
+  const state = !l ? { cls: 'mute', text: tr('Pas encore tenté : cliquez sur « Actualiser » (la liaison se fait à chaque relevé).') }
+    : l.ok ? { cls: 'ok', text: tr('Relié : l\'administration du site affiche son état.') }
+      : { cls: 'warn', text: reasons[l.reason] || reasons.error };
+  const copy = url ? h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' } },
+    h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, url),
+    h('button', { class: 'btn sm', type: 'button', onclick: guard(async () => { await navigator.clipboard.writeText(url); toast(tr('Adresse copiée')); }) }, tr('Copier'))) : null;
+  return h('div', { class: 'card', style: { marginBottom: '16px' } },
+    h('div', { class: 'card-head' }, h('h2', {}, tr('Widget du tableau de bord')), h('span', { class: `pill ${state.cls}` }, l?.ok ? tr('Relié') : l ? tr('Non relié') : tr('En attente'))),
+    h('div', { class: 'card-pad' }, h('p', { style: { margin: 0 } }, state.text), copy));
+}
+
 function updatesTab(w) {
   const report = w.cms;
   const kind = w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
@@ -1409,6 +1430,7 @@ function updatesTab(w) {
       refresh),
     report.error ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, report.error, h('span', { class: 'muted' }, tr(' Le tableau reste celui du dernier relevé réussi.'))))) : null,
   ));
+  root.append(widgetLinkCard(w, report));
   root.append(cmsTable(tr('Noyau'), report.core ? [{ name: kind, current: report.core.current, available: report.core.available, known: report.core.known, since: report.core.since, active: true }] : []));
   root.append(cmsTable(extLabel, report.extensions));
   root.append(cmsTable(tr('Thèmes'), report.themes));
