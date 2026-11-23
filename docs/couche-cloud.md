@@ -390,7 +390,7 @@ Le cœur produit ses textes en français (langue par défaut) ou en anglais, sel
 | `site:create` | `POST /api/watches` · `POST /api/test-url` |
 | `site:delete` | `DELETE /api/watches/:id` |
 | `site:read` | `GET /api/watches` · `GET /api/watches/:id` · `GET /api/watches/:id/uptime` · `GET /api/watches/:id/series` · `GET /api/watches/:id/domain` · `GET /api/watches/:id/history` · `GET /api/snapshots/:id/diff` · `GET /api/snapshots/:id/text` · `GET /api/watches/:id/screenshots` · `GET /api/screenshots/:id/image` · `GET /api/events` |
-| `site:update` | `PUT /api/watches/:id` · `POST /api/watches/:id/toggle` |
+| `site:update` | `PUT /api/watches/:id` · `POST /api/watches/:id/toggle` · `POST /api/watches/:id/cms/harden` (durcissement : modifie le site surveillé via son plugin) |
 | *(aucune : connexion seule)* | `GET /api/me` |
 
 44 routes. `GET /api/auth`, `POST /api/login` et `POST /api/logout` viennent du fournisseur d'authentification par défaut ; le vôtre déclare les siennes.
