@@ -333,5 +333,20 @@
  "L'apparence de la page a changé ({pct} %)": "The page's appearance has changed ({pct} %)",
  "{pct} % de la page est différent de la capture du {date}.": "{pct} % of the page differs from the screenshot of {date}.",
  "📸 {name} — apparence modifiée ({pct} %)": "📸 {name} — appearance changed ({pct} %)",
- "Aucune différence enregistrée pour cette capture": "No difference recorded for this screenshot"
+ "Aucune différence enregistrée pour cette capture": "No difference recorded for this screenshot",
+ "Adresse de webhook Slack invalide : elle doit ressembler à https://hooks.slack.com/services/T…/B…/…": "Invalid Slack webhook URL: it must look like https://hooks.slack.com/services/T…/B…/…",
+ "Collez d'abord l'adresse du webhook Slack": "Paste the Slack webhook URL first",
+ "… et {n} autres alertes": "… and {n} more alerts",
+ "Adresse du webhook Slack manquante ou invalide": "Slack webhook URL missing or invalid",
+ "Slack injoignable ({v1})": "Slack unreachable ({v1})",
+ "Slack limite les envois : réessayez dans quelques instants": "Slack is rate-limiting: try again in a moment",
+ "Slack a refusé le message (HTTP {status} {body})": "Slack rejected the message (HTTP {status} {body})",
+ "✅ SuricateWeb est connecté": "✅ SuricateWeb is connected",
+ "✅ *SuricateWeb est connecté*": "✅ *SuricateWeb is connected*",
+ "Les alertes de surveillance arriveront ici.": "Monitoring alerts will arrive here.",
+ "Adresse du webhook invalide ou révoquée : créez-en une nouvelle dans Slack": "Webhook URL invalid or revoked: create a new one in Slack",
+ "Canal Slack introuvable : le webhook pointe vers un canal supprimé": "Slack channel not found: the webhook points to a deleted channel",
+ "Le canal Slack est archivé : choisissez-en un autre pour ce webhook": "The Slack channel is archived: pick another one for this webhook",
+ "Slack refuse ce webhook : un administrateur de l'espace de travail l'a restreint": "Slack refuses this webhook: a workspace admin has restricted it",
+ "Slack interdit d'écrire dans #general avec ce webhook": "Slack does not allow posting to #general with this webhook"
 }

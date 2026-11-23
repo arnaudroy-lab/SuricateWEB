@@ -11,6 +11,7 @@ import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
 import { clamp, SEV } from '../util.js';
 import { retranslate } from '../i18n.js';
+import { maskWebhook } from '../slack.js';
 
 export function normalizeUrl(input) {
   let u = String(input || '').trim();
@@ -164,6 +165,10 @@ export async function publicSettings(ctx) {
     telegram: mayEdit
       ? { ...s.telegram, token: '', tokenSet: !!s.telegram.token, tokenMasked: maskToken(s.telegram.token) }
       : { ...s.telegram, token: '', chatId: '', tokenSet: false, tokenMasked: '' },
+    // Le webhook Slack est un secret (comme le jeton Telegram) : jamais renvoyé, seulement masqué pour qui peut modifier les réglages.
+    slack: mayEdit
+      ? { ...s.slack, webhookUrl: '', webhookSet: !!s.slack.webhookUrl, webhookMasked: maskWebhook(s.slack.webhookUrl) }
+      : { ...s.slack, webhookUrl: '', webhookSet: false, webhookMasked: '' },
     baseUrl: s.baseUrl, defaultInterval: s.defaultInterval, userAgent: s.userAgent, builtinKeywords: s.builtinKeywords,
     retention: s.retention, cmsAfterDays: s.cmsAfterDays, language: ctx.user?.language ?? s.language, authUser: ctx.user?.name ?? '', defaultKeywords: DEFAULT_KEYWORDS,
     screenshots: { available: engine.available(), allowed: (await ctx.limits()).screenshots !== false, browser: browserLabel(), usage: await ctx.data.screenshotUsage() },

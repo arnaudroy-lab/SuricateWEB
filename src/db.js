@@ -90,6 +90,8 @@ const defaultShotKeep = () => { const n = Math.round(Number(process.env.SCREENSH
 export const accountDefaults = () => ({
   // buttons : boutons « Marquer comme lu » / « Ouvrir dans SuricateWeb » sous chaque message.
   telegram: { token: '', chatId: '', enabled: true, minSeverity: 'warning', sendRecovery: true, includeDiff: true, sendScreenshot: true, buttons: true },
+  // Slack : webhook entrant (secret : quiconque a l'adresse peut écrire dans le canal), chiffré au repos comme le jeton Telegram.
+  slack: { webhookUrl: '', enabled: true, minSeverity: 'warning', sendRecovery: true, includeDiff: true },
   defaultInterval: 15,
   userAgent: 'Mozilla/5.0 (compatible; SuricateWeb/1.0; surveillance de site)',
   builtinKeywords: [...DEFAULT_KEYWORDS],
@@ -104,7 +106,7 @@ export const accountDefaults = () => ({
 const mergeSettings = (instance, account) => ({ ...instance, ...account, retention: { ...instance.retention, ...account.retention } });
 
 /** Applique une écriture partielle : telegram et retention se fusionnent champ par champ, le reste est remplacé. */
-const applyPatch = (cur, patch) => ({ ...cur, ...patch, ...(cur.telegram || patch.telegram ? { telegram: { ...cur.telegram, ...patch.telegram } } : {}), retention: { ...cur.retention, ...patch.retention } });
+const applyPatch = (cur, patch) => ({ ...cur, ...patch, ...(cur.telegram || patch.telegram ? { telegram: { ...cur.telegram, ...patch.telegram } } : {}), ...(cur.slack || patch.slack ? { slack: { ...cur.slack, ...patch.slack } } : {}), retention: { ...cur.retention, ...patch.retention } });
 
 const ACCOUNT_TTL_MS = 30e3;
 let instanceCache = null;
@@ -115,25 +117,36 @@ const accountCache = new Map(); // identifiant de compte → { value, at }
 // elle reste lisible, et se chiffre à la prochaine écriture (ou tout de suite avec sealStoredSecrets). En mémoire, tout est en clair.
 const isSealed = (v) => typeof v === 'string' && /^v\d+:/.test(v);
 
+/** Secrets des réglages : [section, champ]. Le jeton du bot Telegram et l'adresse du webhook Slack. */
+const SECRET_FIELDS = [['telegram', 'token'], ['slack', 'webhookUrl']];
+
 function openSecrets(value, key) {
-  const token = value?.telegram?.token;
-  if (!isSealed(token)) return value;
-  const codec = getSecretCodec();
-  if (!codec) throw new Error(`Réglages « ${key} » : jeton chiffré, mais aucune clé n'est configurée (voir configureStore, secrets)`);
-  try {
-    return { ...value, telegram: { ...value.telegram, token: codec.open(token) } };
-  } catch {
-    // Clé changée ou perdue : ne pas faire tomber tout le service pour un compte. Le jeton est considéré comme absent (à ressaisir).
-    console.error(`[secrets] Réglages « ${key} » : jeton Telegram illisible avec la clé actuelle (SECRETS_KEY modifiée ?). Il doit être ressaisi.`);
-    return { ...value, telegram: { ...value.telegram, token: '' } };
+  let out = value;
+  for (const [section, field] of SECRET_FIELDS) {
+    const secret = out?.[section]?.[field];
+    if (!isSealed(secret)) continue;
+    const codec = getSecretCodec();
+    if (!codec) throw new Error(`Réglages « ${key} » : secret chiffré (${section}), mais aucune clé n'est configurée (voir configureStore, secrets)`);
+    try {
+      out = { ...out, [section]: { ...out[section], [field]: codec.open(secret) } };
+    } catch {
+      // Clé changée ou perdue : ne pas faire tomber tout le service pour un compte. Le secret est considéré comme absent (à ressaisir).
+      console.error(`[secrets] Réglages « ${key} » : secret ${section} illisible avec la clé actuelle (SECRETS_KEY modifiée ?). Il doit être ressaisi.`);
+      out = { ...out, [section]: { ...out[section], [field]: '' } };
+    }
   }
+  return out;
 }
 
 function sealSecrets(value) {
   const codec = getSecretCodec();
-  const token = value?.telegram?.token;
-  if (!codec || typeof token !== 'string' || !token || isSealed(token)) return value;
-  return { ...value, telegram: { ...value.telegram, token: codec.seal(token) } };
+  if (!codec) return value;
+  let out = value;
+  for (const [section, field] of SECRET_FIELDS) {
+    const secret = out?.[section]?.[field];
+    if (typeof secret === 'string' && secret && !isSealed(secret)) out = { ...out, [section]: { ...out[section], [field]: codec.seal(secret) } };
+  }
+  return out;
 }
 
 const settingsRow = async (key) => {
@@ -151,8 +164,8 @@ export async function sealStoredSecrets() {
   if (!getSecretCodec()) return 0;
   let n = 0;
   for (const row of await db.all("SELECT key, value FROM settings WHERE key LIKE 'account:%'")) {
-    const token = json(row.value, {})?.telegram?.token;
-    if (typeof token === 'string' && token && !isSealed(token)) {
+    const saved = json(row.value, {});
+    if (SECRET_FIELDS.some(([section, field]) => { const v = saved?.[section]?.[field]; return typeof v === 'string' && v && !isSealed(v); })) {
       await db.run('UPDATE settings SET value = ? WHERE key = ?', [JSON.stringify(sealSecrets(json(row.value, {}))), row.key]);
       n++;
     }
@@ -226,6 +239,7 @@ async function loadSettings() {
     ...legacy,
     ...saved,
     telegram: { ...legacy.telegram, ...saved.telegram },
+    slack: { ...legacy.slack, ...saved.slack },
     retention: { ...instanceDefaults().retention, ...accountDefaults().retention, ...saved.retention },
   };
   let dirty = false;

@@ -44,6 +44,8 @@ Un seul message par contrôle, avec la sévérité, le détail, un extrait des l
 <img src="docs/screenshots/telegram.png" alt="Message Telegram d'alerte critique avec photo de la page défigurée" width="420">
 </p>
 
+Les mêmes alertes peuvent aussi arriver dans un **canal Slack** (webhook entrant, en couleur selon la gravité) : [Configurer Slack](#configurer-slack).
+
 ### Disponibilité, domaine et alertes
 
 | Disponibilité (type UptimeRobot) | Domaine & DNS |
@@ -211,6 +213,19 @@ Chaque message d'alerte porte deux boutons :
 **Limites** : Telegram n'admet qu'**un seul lecteur** par bot. Si vous avez configuré un **webhook** pour ce bot (autre outil), SuricateWeb ne peut pas recevoir les clics et le signale une fois dans ses journaux : supprimez le webhook ou coupez les boutons. Le bouton **Détecter** des Réglages interroge le même flux : il prend la main un instant, puis la réception reprend d'elle-même ; si un clic arrive juste avant, il peut avoir effacé le `/start` attendu : renvoyez-le au bot.
 
 Dans l'application, l'onglet **Alertes** liste tout ce qui a été détecté (filtres Critiques / Attention / Infos / Rétablis, « Voir les changements » pour ouvrir le diff, badge « Envoyé sur Telegram »). **Tout marquer comme lu** efface le badge ; sur la page d'un site, **Tout est normal** marque ses alertes comme vérifiées.
+
+## Configurer Slack
+
+Les alertes arrivent dans le canal Slack de votre équipe, en plus (ou à la place) de Telegram. Rien à héberger : un **webhook entrant** suffit.
+
+1. Sur `api.slack.com/apps`, créez une application, activez **Incoming Webhooks**, puis *Add New Webhook to Workspace* et choisissez le canal.
+2. Collez l'adresse (`https://hooks.slack.com/services/T…/B…/…`) dans *Réglages › Notifications Slack*, cliquez sur **Tester** (un vrai message part dans le canal), puis **Enregistrer**.
+
+Chaque contrôle envoie **un seul message** : un en-tête avec la gravité la plus haute et le nom du site, une section par alerte (titre, détail, extrait des changements en option), l'adresse du site et un bouton **Ouvrir dans SuricateWeb** si l'adresse publique de l'instance est utilisable. La barre de couleur suit la gravité (rouge, orange, bleu, vert pour un rétablissement). Les options sont celles de Telegram : notifications actives, rétablissement, extrait des changements, niveau minimal.
+
+- **L'adresse du webhook est un secret** : quiconque la possède peut écrire dans votre canal. Elle n'est jamais renvoyée au navigateur (seulement masquée), et chiffrée en base quand la version hébergée fournit une clé (`configureStore({ secrets })`). Une adresse qui n'est pas de la forme `https://hooks.slack.com/services/…` est refusée : le champ ne peut pas servir à faire joindre une adresse interne par le serveur.
+- **Limites d'un webhook** : pas de capture d'écran jointe et pas de bouton « Marquer comme lu » (Slack ne renvoie pas les clics à un simple webhook). Ces deux fonctions restent propres à Telegram.
+- Si Slack répond « trop de requêtes » (429), SuricateWeb réessaie une fois après le délai demandé (10 secondes au plus). Si le webhook a été révoqué ou le canal archivé, l'alerte est marquée en erreur d'envoi avec une explication, et Telegram n'est pas gêné.
 
 ## Captures d'écran
 

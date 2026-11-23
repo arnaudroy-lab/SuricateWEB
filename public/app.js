@@ -304,6 +304,7 @@ const brandName = () => [h('span', { class: 'suricate' }, 'Suricate'), h('span',
 
 function mountShell() {
   const tgOk = S.settings?.telegram.tokenSet && S.settings?.telegram.chatId;
+  const slackOk = !!S.settings?.slack?.webhookSet && S.settings.slack.enabled;
   const app = S.settings?.app ?? {}; // version et liens (absents tant que les réglages ne sont pas chargés)
   const nav = (href, icon, label, id) => h('a', { href, 'data-nav': id }, ic(icon), h('span', {}, label), id === 'alertes' ? h('span', { class: 'badge', id: 'nav-badge', hidden: true }) : null);
   $('#app').replaceChildren(
@@ -315,7 +316,7 @@ function mountShell() {
         h('div', { class: 'side-foot' },
           // Forfait et jauge : calés juste au-dessus de l'indicateur Telegram, en bas de la barre latérale.
           h('div', { id: 'plan-box', class: 'plan-box', hidden: true }),
-          h('a', { class: 'tg-state', href: '#/reglages' }, h('span', { class: `dot ${tgOk ? 'ok' : ''}` }), tgOk ? tr('Telegram actif') : tr('Telegram non configuré')),
+          h('a', { class: 'tg-state', href: '#/reglages' }, h('span', { class: `dot ${tgOk || slackOk ? 'ok' : ''}` }), tgOk ? (slackOk ? tr('Telegram et Slack actifs') : tr('Telegram actif')) : slackOk ? tr('Slack actif') : tr('Telegram non configuré')),
           langSelect(),
           h('div', { class: 'side-actions' },
             // Liens externes : nouvel onglet, sans transmettre l'adresse de cette page (noopener, noreferrer)
@@ -477,7 +478,7 @@ async function viewDashboard() {
   const mss = active.map((w) => w.avgMs).filter((x) => x != null);
   const avgMs = mss.length ? mss.reduce((a, b) => a + b, 0) / mss.length : null;
   const last = Math.max(0, ...list.map((w) => w.lastCheck || 0));
-  const tgOk = settings.telegram.tokenSet && settings.telegram.chatId;
+  const tgOk = (settings.telegram.tokenSet && settings.telegram.chatId) || (settings.slack?.webhookSet && settings.slack.enabled);
 
   const root = h('div', {});
   root.append(h('div', { class: 'page-head' },
@@ -518,8 +519,8 @@ async function viewDashboard() {
 
   if (!tgOk) {
     root.append(h('div', { class: 'callout' }, ic('send'),
-      h('div', {}, h('b', {}, tr('Recevez les alertes sur votre téléphone. ')), tr('Connectez un bot Telegram pour être prévenu dès qu\'un site est modifié, piraté ou tombe.')),
-      h('a', { class: 'btn sm primary', href: '#/reglages' }, tr('Configurer Telegram'))));
+      h('div', {}, h('b', {}, tr('Recevez les alertes sur votre téléphone. ')), tr('Connectez un bot Telegram ou un canal Slack pour être prévenu dès qu\'un site est modifié, piraté ou tombe.')),
+      h('a', { class: 'btn sm primary', href: '#/reglages' }, tr('Configurer les notifications'))));
   }
 
   root.append(h('div', { class: 'stats' },
@@ -2024,6 +2025,7 @@ async function viewSettings() {
   const s = await api('/settings');
   S.settings = s;
   const t = s.telegram;
+  const sl = s.slack ?? { webhookSet: false, enabled: true, minSeverity: 'warning', sendRecovery: true, includeDiff: true, webhookMasked: '' };
   // Alertes par e-mail à l'adresse du compte : annoncées par le serveur (capacité `emailAlerts` { url, moreUrl }) ; le cœur auto-hébergé n'en annonce
   // aucune et la section n'apparaît pas. Un échec de lecture masque simplement la section : les autres réglages restent utilisables.
   const mailUrl = localHref(S.caps?.emailAlerts?.url);
@@ -2039,6 +2041,11 @@ async function viewSettings() {
     photo: h('input', { type: 'checkbox', checked: t.sendScreenshot, disabled: !s.screenshots.available }),
     buttons: h('input', { type: 'checkbox', checked: t.buttons !== false }),
     minSev: h('select', { class: 'input', value: t.minSeverity }, h('option', { value: 'info' }, tr('Tout, y compris les infos')), h('option', { value: 'warning' }, tr('Attention et critique (recommandé)')), h('option', { value: 'critical' }, tr('Critique uniquement'))),
+    slackUrl: h('input', { class: 'input mono', placeholder: sl.webhookSet ? tr('{token}  (déjà enregistré)', { token: sl.webhookMasked }) : 'https://hooks.slack.com/services/T…/B…/…', autocomplete: 'off', spellcheck: false }),
+    slackOn: h('input', { type: 'checkbox', checked: sl.enabled }),
+    slackRecovery: h('input', { type: 'checkbox', checked: sl.sendRecovery }),
+    slackDiff: h('input', { type: 'checkbox', checked: sl.includeDiff }),
+    slackSev: h('select', { class: 'input', value: sl.minSeverity }, h('option', { value: 'info' }, tr('Tout, y compris les infos')), h('option', { value: 'warning' }, tr('Attention et critique (recommandé)')), h('option', { value: 'critical' }, tr('Critique uniquement'))),
     base: h('input', { class: 'input', placeholder: tr('http://monserveur:3000 (pour les liens dans les messages)'), value: s.baseUrl }),
     interval: h('select', { class: 'input', value: String(everyChoices(INTERVALS, s.defaultInterval).value) }, ...everyChoices(INTERVALS, s.defaultInterval).options.map(([v, l]) => h('option', { value: String(v) }, l))),
     ua: h('input', { class: 'input', value: s.userAgent }),
@@ -2080,8 +2087,13 @@ async function viewSettings() {
     const b = e.currentTarget; b.disabled = true;
     try { const r = await api('/telegram/test', { method: 'POST', body: tgBody() }); toast(tr('Message envoyé via @{bot} — vérifiez Telegram', { bot: r.bot })); } finally { b.disabled = false; }
   });
+  const testSlack = guard(async (e) => {
+    const b = e.currentTarget; b.disabled = true;
+    try { await api('/slack/test', { method: 'POST', body: { webhookUrl: f.slackUrl.value.trim() } }); toast(tr('Message envoyé — vérifiez Slack')); } finally { b.disabled = false; }
+  });
   const save = guard(async () => {
     S.settings = await api('/settings', { method: 'PUT', body: {
+      slack: { webhookUrl: f.slackUrl.value.trim(), enabled: f.slackOn.checked, sendRecovery: f.slackRecovery.checked, includeDiff: f.slackDiff.checked, minSeverity: f.slackSev.value },
       telegram: { token: f.token.value.trim(), chatId: f.chat.value.trim(), enabled: f.enabled.checked, sendRecovery: f.recovery.checked, includeDiff: f.diff.checked, sendScreenshot: f.photo.checked, buttons: f.buttons.checked, minSeverity: f.minSev.value },
       baseUrl: f.base.value, defaultInterval: Number(f.interval.value), retention: { screenshots: Number(f.keepAll.value) }, cmsAfterDays: Number(f.cmsDays.value), userAgent: f.ua.value, builtinKeywords: f.kw.value.split('\n'),
     } });
@@ -2115,6 +2127,19 @@ async function viewSettings() {
         toggle(f.buttons, tr('Boutons « Marquer comme lu » et « Ouvrir dans SuricateWeb »'), tr('Sous chaque alerte Telegram. « Marquer comme lu » est reçu par SuricateWeb en interrogeant Telegram : aucune adresse publique n’est nécessaire. « Ouvrir dans SuricateWeb » apparaît si l’adresse publique de SuricateWeb, plus bas, est utilisable.')),
         h('div', { class: 'field', style: { marginTop: '14px' } }, h('label', {}, tr('Niveau minimal des notifications')), f.minSev),
         h('div', { class: 'field', style: { marginBottom: 0 } }, h('label', {}, tr('Adresse de SuricateWeb (optionnel)')), f.base, h('span', { class: 'hint' }, tr('Donne son adresse au bouton « Ouvrir dans SuricateWeb » sous chaque message. Elle doit être joignable depuis un téléphone : pas de localhost ni de réseau local.')))),
+      h('section', { class: 'card card-pad' },
+        h('h2', { style: { marginBottom: '4px' } }, tr('Notifications Slack')),
+        h('p', { class: 'muted', style: { marginBottom: '16px' } }, tr('Les alertes arrivent dans le canal Slack de votre équipe, avec leur gravité en couleur.')),
+        h('ol', { class: 'steps' },
+          h('li', {}, h('span', {}, tr('Dans Slack, ouvrez '), h('b', {}, 'api.slack.com/apps'), tr(', créez une application, activez '), h('b', {}, 'Incoming Webhooks'), tr(' puis « Add New Webhook to Workspace ».'))),
+          h('li', {}, h('span', {}, tr('Choisissez le canal, copiez l\'adresse du webhook, collez-la ci-dessous, puis cliquez sur « Tester ».')))),
+        h('div', { class: 'field' }, h('label', {}, tr('Adresse du webhook')), h('div', { class: 'input-group' }, f.slackUrl, h('button', { class: 'btn', onclick: testSlack }, ic('send'), tr('Tester'))),
+          h('span', { class: 'hint' }, tr('Cette adresse est un secret : quiconque la possède peut écrire dans votre canal. Elle est enregistrée chiffrée quand une clé est configurée, et n\'est plus jamais affichée en entier.'))),
+        toggle(f.slackOn, tr('Notifications actives'), tr('Coupe tous les envois Slack sans perdre la configuration.')),
+        toggle(f.slackRecovery, tr('Prévenir du rétablissement'), tr('Message « ✅ Rétabli » quand un incident disparaît.')),
+        toggle(f.slackDiff, tr('Joindre un extrait des changements'), tr('Les premières lignes ajoutées / supprimées dans le message.')),
+        h('p', { class: 'hint muted' }, tr('Slack ne reçoit pas de capture d\'écran ni de bouton « Marquer comme lu » : ils restent propres à Telegram.')),
+        h('div', { class: 'field', style: { marginTop: '14px', marginBottom: 0 } }, h('label', {}, tr('Niveau minimal des notifications')), f.slackSev)),
       mail ? h('section', { class: 'card card-pad' },
         h('h2', { style: { marginBottom: '4px' } }, tr('Notifications par e-mail')),
         h('p', { class: 'muted', style: { marginBottom: '16px' } }, tr('Les alertes arrivent aussi dans votre boîte aux lettres : {address}, l\'adresse de votre compte.', { address: mail.address })),

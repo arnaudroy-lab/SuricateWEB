@@ -5,9 +5,10 @@
 //     send(watch, alerts, settings)  → promesse (rejetée si l'envoi échoue),
 //     sendPhoto?(image, caption)     → promesse (capture d'écran jointe aux alertes visuelles) }
 //
-// Le cœur ne connaît que Telegram, configuré dans les réglages. La version hébergée remplace `resolveChannels`
+// Le cœur connaît Telegram et Slack, configurés dans les réglages. La version hébergée remplace `resolveChannels`
 // (voir src/extensions.js) pour en fournir d'autres : e-mail, webhook, plusieurs canaux par groupe ou par site.
 import { sendAlert, sendPhoto } from './telegram.js';
+import { sendSlackAlert } from './slack.js';
 import { SEV } from './util.js';
 
 /** Canal Telegram des réglages. La gravité minimale du site, si elle est définie, l'emporte sur celle des réglages. */
@@ -22,12 +23,26 @@ export function telegramChannel(t, watch) {
   };
 }
 
+/** Canal Slack des réglages (webhook entrant). Pas d'image ni de bouton « Marquer comme lu » : un webhook ne reçoit pas de clic. */
+export function slackChannel(sl, watch) {
+  return {
+    type: 'slack',
+    minSeverity: watch.config.minSeverity || sl.minSeverity,
+    sendRecovery: sl.sendRecovery,
+    wantsPhoto: false,
+    send: (w, alerts, settings) => sendSlackAlert(sl.webhookUrl, w, alerts, settings),
+  };
+}
+
 export const defaultNotifier = {
   /** Canaux à prévenir pour ces alertes : [] = personne. Peut renvoyer une promesse. */
   resolveChannels(watch, alerts, settings) {
     const t = settings.telegram;
-    if (!t.enabled || !t.token || !t.chatId) return [];
-    return [telegramChannel(t, watch)];
+    const sl = settings.slack;
+    const channels = [];
+    if (t.enabled && t.token && t.chatId) channels.push(telegramChannel(t, watch));
+    if (sl?.enabled && sl.webhookUrl) channels.push(slackChannel(sl, watch));
+    return channels;
   },
 };
 

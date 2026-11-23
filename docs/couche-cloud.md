@@ -16,7 +16,7 @@ Document de référence pour le dépôt **privé** qui transforme le cœur open 
 | Temps réel | `/api/events` ne transmet à chaque utilisateur que les événements de son compte. | `src/routes/events.js` |
 | Droits | Chaque route privée déclare une permission ; `authorize` en décide. | `src/app.js` |
 | Réseau | Garde SSRF optionnelle : adresses privées refusées, adresse vérifiée à la connexion (pas de DNS rebinding). | `src/net-guard.js` |
-| Notifications | Canaux remplaçables ; Telegram par défaut. | `src/notify.js` |
+| Notifications | Canaux remplaçables ; Telegram et Slack par défaut. | `src/notify.js` |
 
 Ces garanties sont verrouillées par des tests qui **échouent** si on les contourne (voir §8).
 
@@ -180,7 +180,7 @@ canal = {
 
 Appelé à chaque contrôle qui produit des alertes, après le réglage « ne pas notifier » du site. Chaque canal reçoit les alertes qui lui reviennent selon sa gravité minimale. Une alerte est marquée « envoyée » si **au moins un** canal aboutit ; si tous échouent, l'erreur du dernier échec est conservée. Une seule capture est prise pour tous les canaux qui en veulent.
 
-C'est le point d'ancrage des **canaux multiples par compte, groupe et site** : votre `resolveChannels` lit vos tables de canaux et de règles (portée compte, groupe ou site) et renvoie la liste. Le cœur fournit `telegramChannel(t, site)` pour construire un canal Telegram.
+C'est le point d'ancrage des **canaux multiples par compte, groupe et site** : votre `resolveChannels` lit vos tables de canaux et de règles (portée compte, groupe ou site) et renvoie la liste. Le cœur fournit `telegramChannel(t, site)` et `slackChannel(s, site)` pour construire les canaux des réglages ; le `resolveChannels` par défaut renvoie Telegram **et** Slack quand ils sont configurés (cœur ≥ 1.31) : réutilisez-le (`defaultNotifier.resolveChannels`) pour que Slack fonctionne sans code de votre côté.
 
 Pas de lecteur de boutons Telegram multi-comptes dans le cœur : le sien est lié au compte implicite et à un seul bot. Pour un bot partagé, prévoir un webhook (route `public` avec en-tête secret) qui retrouve le compte à partir de la conversation, **et vérifie que le site du bouton appartient à ce compte** avant de marquer des alertes comme lues (les fonctions `markAlertsReadUpTo` et `rememberDomainAck` ne vérifient pas le compte).
 
@@ -253,7 +253,7 @@ Les fonctions qui prennent l'identifiant d'un site **déjà obtenu par `ctx.data
 
 `settingsFor(compteId)` donne la **vue fusionnée** (installation + compte) que reçoivent contrôles, messages et relevés. `getSettings()` (synchrone) est la vue du **compte implicite 1** : à ne pas utiliser dans du code multi-comptes. Un compte sans ligne a les valeurs par défaut (`accountDefaults()`). Les réglages d'un compte sont relus au bout de 30 s : une modification faite par un autre processus est vue dans ce délai.
 
-**Chiffrement des jetons Telegram.** Par défaut le jeton du bot est stocké en clair dans la ligne de réglages du compte. `configureStore({ secrets: { seal, open } })` le chiffre au repos : `seal(texte)` renvoie un texte préfixé `v1:` (AES-GCM, par exemple), `open` fait l'inverse. En mémoire et dans l'API, le jeton reste en clair ; en base, jamais. Une valeur sans préfixe est du clair d'avant le chiffrement : elle reste lisible et se chiffre à la prochaine écriture, ou tout de suite avec `sealStoredSecrets()` (à appeler au démarrage). Si la clé change ou se perd, le jeton d'un compte est considéré absent (message dans les journaux, à ressaisir) au lieu de faire tomber le service ; un jeton chiffré sans aucun codec configuré lève une erreur explicite.
+**Chiffrement des secrets des réglages (jeton Telegram, adresse du webhook Slack).** Par défaut ces secrets sont stockés en clair dans la ligne de réglages du compte. `configureStore({ secrets: { seal, open } })` le chiffre au repos : `seal(texte)` renvoie un texte préfixé `v1:` (AES-GCM, par exemple), `open` fait l'inverse. En mémoire et dans l'API, le jeton reste en clair ; en base, jamais. Une valeur sans préfixe est du clair d'avant le chiffrement : elle reste lisible et se chiffre à la prochaine écriture, ou tout de suite avec `sealStoredSecrets()` (à appeler au démarrage). Si la clé change ou se perd, le jeton d'un compte est considéré absent (message dans les journaux, à ressaisir) au lieu de faire tomber le service ; un jeton chiffré sans aucun codec configuré lève une erreur explicite.
 
 À décider côté cloud : si la rétention des contrôles devient un réglage de forfait (aujourd'hui d'installation).
 
