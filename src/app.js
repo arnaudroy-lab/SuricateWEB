@@ -61,6 +61,7 @@ import { createEnvAuth } from './auth-env.js';
 import { rememberDomainAck } from './routes/shared.js';
 import { createStaticHandler } from './routes/static.js';
 import { createStatusPageHandler } from './routes/status-page.js';
+import { createWidgetHandler } from './routes/widget.js';
 import registerMeta from './routes/meta.js';
 import registerWatches from './routes/watches.js';
 import registerMonitoring from './routes/monitoring.js';
@@ -156,12 +157,15 @@ export function createApp({
 
   const serveStatic = createStaticHandler(join(root, 'public'));
   const serveStatusPage = createStatusPageHandler({ clientIp });
+  const serveWidget = createWidgetHandler({ clientIp });
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     try {
       const status = req.method === 'GET' && /^\/status\/([A-Za-z0-9_-]{1,80})\/?$/.exec(url.pathname);
       if (status) return await serveStatusPage(req, res, status[1], url.searchParams);
+      const widget = req.method === 'GET' && /^\/widget\/([A-Za-z0-9_-]{16,64})\.json$/.exec(url.pathname);
+      if (widget) return await serveWidget(req, res, widget[1]);
       if (home && (url.pathname === '/' || homePaths.includes(url.pathname)) && (req.method === 'GET' || req.method === 'HEAD')) {
         // À cette adresse, la réponse dépend de la session : visiteur → page d'accueil, compte connecté → application. `vary: cookie`
         // empêche un cache intermédiaire (CDN, proxy) de resservir l'une à la place de l'autre.

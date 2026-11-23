@@ -402,6 +402,8 @@ export function normalizeConfig(input = {}) {
     alerts: rawCms.alerts !== false,
     security: rawCms.security !== false,
     codeScan: rawCms.codeScan !== false,
+    // Jeton du widget (état en lecture seule affiché dans l'administration du CMS) : aléatoire, distinct du jeton du plugin.
+    widgetToken: /^[A-Za-z0-9_-]{16,64}$/.test(String(rawCms.widgetToken ?? '')) ? String(rawCms.widgetToken) : '',
   };
   c.pages = c.mode === 'domain' ? [] : pageList(input.pages);
   const rawStatus = input.statusPage && typeof input.statusPage === 'object' ? input.statusPage : {};
@@ -436,6 +438,17 @@ const rowToWatch = (r) =>
     position: r.position,
     accountId: r.account_id ?? DEFAULT_ACCOUNT_ID,
   };
+
+/** Site dont le widget CMS porte ce jeton, ou null (même principe que la page de statut). */
+export async function getWatchByWidgetToken(token) {
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(String(token ?? ''))) return null;
+  const rows = await db.all('SELECT * FROM watches WHERE config LIKE ?', [`%${token}%`]);
+  for (const r of rows) {
+    const w = rowToWatch(r);
+    if (w.config.cms.type && w.config.cms.widgetToken === token) return w;
+  }
+  return null;
+}
 
 /** Site dont la page de statut publique porte ce jeton, ou null. Le jeton est validé avant d'entrer dans la requête. */
 export async function getWatchByStatusToken(token) {

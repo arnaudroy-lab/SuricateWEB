@@ -409,6 +409,16 @@ SuricateWeb voit le HTML d'un site, pas ses fichiers. Le plugin comble ce manque
 - **Une alerte qui grossit est annoncée de nouveau** : un deuxième fichier suspect apparaissant alors que le premier est déjà signalé déclenche un nouveau message. Quand tout est conforme, « ✅ Rétabli ».
 - **PrestaShop : couverture partielle.** PrestaShop ne publie pas de sommes de contrôle exploitables pour son cœur ni pour ses modules : le module cherche seulement des fichiers PHP dans `img/`, `upload/` et `download/` (hors les `index.php` de redirection livrés par PrestaShop).
 
+### Widget du tableau de bord (plugin 1.4)
+
+Le plugin affiche l'état du site **dans l'administration du CMS** (tableau de bord WordPress, accueil du back-office PrestaShop) : statut, disponibilité sur 30 jours, alertes ouvertes par gravité, jours restants du certificat et du domaine, et trois boutons (ouvrir SuricateWeb, rapport du mois, page de statut). Textes en français ou en anglais selon la langue de l'administration.
+
+- **Liaison automatique** : au relevé suivant, SuricateWeb donne au plugin l'adresse de son widget (`POST …/suricateweb/v1/link`, avec le jeton du plugin). Rien à configurer, à condition que l'**adresse publique de l'instance** soit renseignée. Un plugin plus ancien est laissé tranquille.
+- **Sans connexion, par jeton** : le widget est lu sur `/widget/<jeton>.json`, un jeton aléatoire **distinct** de celui du plugin (le jeton du plugin n'ouvre pas le widget, et inversement). Réponse en lecture seule : compteurs seulement, **jamais le texte d'une alerte**, ni jeton ni adresse interne. 60 requêtes par minute et par adresse ; `no-store`, `noindex`.
+- **Côté CMS** : le plugin lit le widget avec un délai de 3 secondes, sans suivre de redirection (adresses internes refusées sous WordPress), garde la réponse 5 minutes et n'affiche que des valeurs validées et échappées. Si SuricateWeb ne répond pas, le tableau de bord le dit sans ralentir.
+- Pour couper le widget : retirez le CMS de la fiche du site (le widget répond alors « introuvable »).
+
+
 ### Code suspect (plugin 1.3)
 
 Les sommes de contrôle ne couvrent ni les thèmes sur mesure, ni les extensions premium, ni PrestaShop. Le plugin cherche donc aussi, **dans les fichiers PHP du site**, ce qui ressemble à du code injecté (souvent obfusqué), et suit leurs empreintes d'un relevé à l'autre.
