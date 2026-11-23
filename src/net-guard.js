@@ -177,7 +177,8 @@ export function createNetGuard({ enabled = true, allowedPorts = DEFAULT_PORTS, a
   }
 
   /**
-   * fetch() en lecture seule (GET, redirections laissées à l'appelant) avec contrôle de l'adresse à la connexion.
+   * fetch() avec contrôle de l'adresse à la connexion (redirections laissées à l'appelant). Un corps de requête texte ou binaire (`init.body`) est envoyé :
+   * les ordres donnés au plugin d'un site (liaison du widget, durcissement, journal) sont des POST JSON, et un POST sans corps lui arrivait vide (HTTP 400).
    * Renvoie une vraie Response : le reste du code ne voit aucune différence avec fetch().
    * Réponses gzip, deflate et brotli décompressées, comme le fait fetch.
    */
@@ -193,6 +194,9 @@ export function createNetGuard({ enabled = true, allowedPorts = DEFAULT_PORTS, a
       const lib = url.protocol === 'https:' ? https : http;
       const headers = { 'accept-encoding': 'gzip, deflate, br', connection: 'close' };
       for (const [k, v] of Object.entries(init.headers ?? {})) headers[k.toLowerCase()] = v;
+      const payload = init.body == null ? null : Buffer.isBuffer(init.body) || init.body instanceof Uint8Array ? Buffer.from(init.body) : typeof init.body === 'string' ? Buffer.from(init.body, 'utf8') : null;
+      if (init.body != null && payload === null) return reject(new TypeError('Corps de requête non pris en charge par la garde réseau (texte ou binaire seulement)'));
+      if (payload) headers['content-length'] = String(payload.length);
       const signal = init.signal;
       if (signal?.aborted) return reject(signal.reason);
       let body = null; // le corps de la réponse, une fois qu'on l'a
@@ -236,7 +240,7 @@ export function createNetGuard({ enabled = true, allowedPorts = DEFAULT_PORTS, a
         signal?.removeEventListener('abort', onAbort);
         reject(e);
       });
-      req.end();
+      req.end(payload ?? undefined);
     });
   }
 

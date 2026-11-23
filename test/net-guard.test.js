@@ -167,6 +167,11 @@ const origin = http.createServer((req, res) => {
   if (path === '/nobody') { res.writeHead(204); return res.end(); }
   if (path === '/notfound') { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('absent'); }
   if (path === '/echo') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ ua: req.headers['user-agent'], cookie: req.headers.cookie, accept: req.headers.accept, host: req.headers.host, ae: req.headers['accept-encoding'] })); }
+  if (path === '/post') {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    return req.on('end', () => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ method: req.method, type: req.headers['content-type'], length: req.headers['content-length'], body: Buffer.concat(chunks).toString('utf8') })); });
+  }
   if (path === '/slow') { res.writeHead(200, { 'content-type': 'text/plain' }); res.write('début'); return; /* ne se termine jamais */ }
   if (path === '/big') {
     res.writeHead(200, { 'content-type': 'text/plain' });
@@ -396,6 +401,20 @@ test('Chrome : une page autorisée qui charge une ressource INTERNE ne la charge
     secret.close();
     page.close();
   }
+});
+
+test('client de la garde : un POST emporte son corps (les ordres donnés aux plugins des sites)', async () => {
+  const g = open();
+  const body = JSON.stringify({ widget: 'https://s.test/widget/abc.json', accents: 'é€' });
+  const r = await g.fetch(at('/post'), { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+  const echoed = await r.json();
+  assert.deepEqual([echoed.method, echoed.type, echoed.body], ['POST', 'application/json', body]);
+  assert.equal(Number(echoed.length), Buffer.byteLength(body), 'content-length en octets, pas en caractères');
+  const bin = await (await g.fetch(at('/post'), { method: 'POST', body: Buffer.from([0x68, 0x69]) })).json();
+  assert.equal(bin.body, 'hi');
+  const get = await (await g.fetch(at('/post'))).json();
+  assert.deepEqual([get.method, get.body], ['GET', ''], 'un GET reste sans corps');
+  await assert.rejects(g.fetch(at('/post'), { method: 'POST', body: new URLSearchParams({ a: '1' }) }), /Corps de requête non pris en charge/);
 });
 
 test.after(() => {
