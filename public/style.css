@@ -623,8 +623,8 @@ textarea.input { height: auto; }
 /* Barre de filtres et contrôle segmenté */
 .toolbar:not(.sub) { padding: 12px; background: var(--sw-glass-soft); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border: 1px solid var(--sw-glass-border); border-radius: var(--sw-r-card); }
 .seg { background: var(--sw-glass-soft); border-radius: var(--sw-r-control); padding: 4px; }
-.seg button { min-height: 36px; border-radius: 11px; color: var(--sw-text-2); }
-.seg button.on { background: var(--sw-selected-bg); color: var(--sw-selected-fg); box-shadow: var(--sw-shadow-sm); }
+.seg button { border: 1px solid transparent; min-height: 36px; border-radius: 11px; color: var(--sw-text-2); }
+.seg button.on { background: var(--sw-nav-active); color: var(--sw-nav-active-fg); border: 1px solid var(--sw-glass-border); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); box-shadow: 0 4px 12px rgba(15, 23, 42, .10), inset 0 1px 0 rgba(255, 255, 255, .6); }
 
 /* Cartes, pastilles, chips */
 .card-head { border-bottom-color: var(--sw-divider); }
@@ -673,7 +673,7 @@ textarea.input { height: auto; }
 
 /* Onglets de la fiche : barre de verre, onglet actif plein. */
 .tabs { gap: 4px; padding: 4px; background: var(--sw-glass-soft); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); border: 1px solid var(--sw-glass-border); border-radius: 18px; }
-.tabs a { min-height: 44px; padding: 0 16px; margin-bottom: 0; border-bottom: 0; border-radius: 13px; color: var(--sw-text-2); }
+.tabs a { min-height: 44px; padding: 0 16px; margin-bottom: 0; border: 1px solid transparent; border-radius: 13px; color: var(--sw-text-2); }
 .tabs a:hover { background: var(--sw-hover); color: var(--sw-text); }
 /* Onglet actif en verre, comme l'entrée active du menu latéral (et non plus un bloc sombre opaque). */
 .tabs a.on { background: var(--sw-nav-active); color: var(--sw-nav-active-fg); border: 1px solid var(--sw-glass-border); -webkit-backdrop-filter: var(--sw-glass-blur); backdrop-filter: var(--sw-glass-blur); box-shadow: 0 6px 18px rgba(15, 23, 42, .10), inset 0 1px 0 rgba(255, 255, 255, .6); }
