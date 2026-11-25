@@ -164,6 +164,7 @@ test('« Tout est normal » acquitte aussi les incidents Mises à jour / Sécuri
   const { DatabaseSync } = await import('node:sqlite');
   const w = await create('Acquit');
   const db = new DatabaseSync(`${srv.dataDir}/suricate.db`);
+  db.exec('PRAGMA busy_timeout = 10000'); // le serveur de test écrit aussi dans cette base : attendre le verrou au lieu d'échouer (« database is locked »)
   const state = { incidents: {
     cms_core: { severity: 'warning', title: 'WordPress 6.8 disponible', detail: '', since: 1 },
     cms_integrity_uploads: { severity: 'critical', title: 'PHP dans uploads', detail: '', since: 1, count: 1 },

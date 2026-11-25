@@ -9,6 +9,7 @@ import { openPage, findChrome } from '../test-support/browser.js';
 
 const srv = await startServer({ env: { SURICATE_DEMO: '1' } });
 const sql = new DatabaseSync(join(srv.dataDir, 'suricate.db'));
+sql.exec('PRAGMA busy_timeout = 10000'); // le serveur de test écrit aussi dans cette base : attendre le verrou plutôt que d'échouer (« database is locked »)
 test.after(async () => { sql.close(); await srv.stop(); });
 
 const DAY = 864e5;
