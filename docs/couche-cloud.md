@@ -199,6 +199,10 @@ Pas de lecteur de boutons Telegram multi-comptes dans le cœur : le sien est li�
 
 **Limite à connaître** : Chrome résout les adresses lui-même. Ses requêtes sont interceptées et vérifiées une à une, mais l'adresse jugée peut différer de celle de la connexion. Pour une garantie complète, faites tourner Chrome dans un conteneur ou un réseau **sans accès à l'interne** (§7).
 
+### 3.8 bis `cms` — connecteur WordPress / PrestaShop
+
+Le connecteur CMS (plugins, relevés, widget, onglets Mises à jour / Sécurité / Santé / Activité) est **désactivé par défaut** dans le cœur. La version hébergée l'active avec `createApp({ cms: true })` ; une installation auto-hébergée avec `SURICATE_CMS=1`. L'option l'emporte sur la variable. Désactivé : les routes `/api/plugins*`, `/api/watches/:id/cms*`, `/api/watches/:id/activity` et `/widget/…` n'existent pas, le planificateur ne fait aucun relevé, la liste et la fiche n'exposent aucune donnée CMS et la capacité `cms` de `GET /api/capabilities` vaut `false` (l'interface masque alors le formulaire et les onglets). La configuration CMS déjà enregistrée n'est jamais effacée : elle est ignorée, et reprend à la réactivation. Voir `src/features.js`.
+
 ### 3.9 `capabilities`
 
 Fusionné dans `GET /api/capabilities` (public), avec `{ mode: 'self-hosted', multiUser: false, billing: false, version }` par défaut. L'interface s'en sert pour afficher ou masquer des écrans (le contrôle réel reste côté serveur). Depuis 1.15, elle lit aussi :

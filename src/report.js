@@ -7,6 +7,7 @@ import {
 } from './db.js';
 import { phpSupport, codeAlertFiles } from './cms-alerts.js';
 import { esc, fmtDuration } from './util.js';
+import { features } from './features.js';
 import { tr, plural, currentLang, currentLocale, decimalSep } from './i18n.js';
 
 /** Nom du mois (0 à 11) dans la langue du contexte. */
@@ -92,7 +93,7 @@ export async function siteReport(w, range, now = Date.now()) {
   out.alerts.total = rows.length;
 
   const cms = w.state.cms;
-  if (!domainOnly && w.config.cms.type && cms?.core) {
+  if (!domainOnly && features.cms && w.config.cms.type && cms?.core) {
     const pending = [
       ...(cms.core?.available ? [{ kind: 'core', name: w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress', current: cms.core.current, available: cms.core.available }] : []),
       ...(cms.extensions || []).filter((e) => e.available).map((e) => ({ kind: 'ext', name: e.name, current: e.current, available: e.available })),

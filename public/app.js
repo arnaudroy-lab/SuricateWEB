@@ -1052,7 +1052,8 @@ async function viewDetail(id, tab, tok, openSnap) {
   }
 
   const domainOnly = w.mode === 'domain';
-  const cmsOn = !domainOnly && (w.config?.cms?.type === 'wordpress' || w.config?.cms?.type === 'prestashop');
+  // Connecteur CMS : seulement si le serveur l'annonce (capacité `cms`, voir src/features.js) ; sinon la configuration enregistrée est ignorée.
+  const cmsOn = !!S.caps?.cms && !domainOnly && (w.config?.cms?.type === 'wordpress' || w.config?.cms?.type === 'prestashop');
   const cmsN = cmsPending(w.cms);
   const cmsSecN = cmsSecurityCount(w);
   const tabs = domainOnly
@@ -2145,10 +2146,10 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     h('div', { class: 'row' }, h('div', { class: 'field' }, h('label', {}, tr('Nom')), f.name), h('div', { class: 'field' }, h('label', {}, tr('Fréquence de contrôle')), f.interval)),
     h('div', { class: 'field' }, h('label', {}, tr('Groupe')), f.group, h('span', { class: 'hint' }, tr('Pour classer vos sites dans la liste (par client, par projet…). Vous pouvez aussi les glisser-déposer.'))),
     h('div', { class: 'field' }, h('label', {}, tr('Étiquettes')), f.tags, h('span', { class: 'hint' }, tr('Séparées par des virgules — pratique pour regrouper par client.'))),
-    siteOnly(details(tr('WordPress / PrestaShop'), [
+    S.caps?.cms ? siteOnly(details(tr('WordPress / PrestaShop'), [
       h('div', { class: 'field' }, h('label', {}, 'CMS'), f.cmsType, h('span', { class: 'hint' }, tr('SuricateWeb interroge un plugin installé sur le site pour lire la version de PHP et les mises à jour. Le plugin n’envoie rien de lui-même.'))),
       cmsBox,
-    ], !!(c.cms?.type))),
+    ], !!(c.cms?.type))) : null,
     siteOnly(details(tr('Pages supplémentaires'), [
       h('div', { class: 'field' }, h('label', {}, tr('Autres pages à surveiller')), f.pages,
         h('span', { class: 'hint' }, tr('Une par ligne : un chemin (/panier) ou une adresse du même site, puis « | » et un nom facultatif. 10 pages au plus. Panier, paiement, connexion et contact sont les cibles favorites des pirates : SuricateWeb y vérifie la disponibilité, les textes suspects, les nouveaux scripts, iframes et formulaires détournés. Ces pages ne comptent pas dans la disponibilité du site.'))),

@@ -23,7 +23,7 @@ writeFileSync(envFile, `SURICATE_USER=${DEMO_USER}\nSURICATE_PASSWORD=${DEMO_PAS
 
 const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', join(ROOT, 'server.js')], {
   stdio: 'inherit',
-  env: { ...process.env, DATA_DIR: dataDir, ENV_FILE: envFile, PORT, HOST: '127.0.0.1', SURICATE_DEMO: '1' },
+  env: { ...process.env, DATA_DIR: dataDir, ENV_FILE: envFile, PORT, HOST: '127.0.0.1', SURICATE_DEMO: '1', SURICATE_CMS: '1' },
 });
 console.log(`\n  Démo : http://127.0.0.1:${PORT}   identifiant « ${DEMO_USER} » · mot de passe « ${DEMO_PASSWORD} »\n  Ctrl+C pour arrêter (les données fictives sont alors supprimées).\n`);
 

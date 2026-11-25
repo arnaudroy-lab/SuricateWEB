@@ -23,6 +23,7 @@ import { getExtensions } from './extensions.js';
 import { captureWatch, engine } from './screenshot.js';
 import { bus } from './events.js';
 import { compileSafeRegex } from './safe-regex.js';
+import { features } from './features.js';
 import { sha1, registrable, isIp, SEV, fmtDuration } from './util.js';
 import { tr, plural, runWithLang, currentLocale } from './i18n.js';
 
@@ -722,7 +723,7 @@ async function runCheckNow(id) {
   }
 
   // ── CMS : mises à jour, support de PHP, intégrité des fichiers, comptes administrateurs (relevé séparé du plugin, 12 h par défaut) ──
-  if (!domainOnly && cfg.cms.type) {
+  if (!domainOnly && cfg.cms.type && features.cms) {
     const updates = cfg.cms.alerts !== false;
     const security = cfg.cms.security !== false;
     const health = cfg.cms.health !== false;

@@ -120,6 +120,7 @@ SURICATE_PASSWORD="un mot de passe solide"     # 8 caractères minimum ; guillem
 | `PORT` | `3000` | Port d'écoute |
 | `HOST` | `127.0.0.1` | Interface d'écoute (`0.0.0.0` pour exposer sur le réseau) |
 | `DATA_DIR` | `./data` | Base SQLite et captures d'écran |
+| `SURICATE_CMS` | — | `1` active le connecteur WordPress / PrestaShop (plugins, relevés, widget, onglets de la fiche). **Désactivé par défaut** : il est pensé pour la version hébergée, qui l'active elle-même |
 | `TRUST_PROXY` | — | Nombre de reverse proxys de confiance : `1` derrière Traefik/nginx, `2` si un CDN les précède (cookie `Secure`, IP client lue en partant de la fin de `X-Forwarded-For`) |
 | `CHROME_PATH` | détecté | Chemin de Chrome/Chromium pour les captures |
 | `CHROME_NO_SANDBOX` | — | `1` dans Docker (déjà défini dans l'image) |
@@ -344,6 +345,8 @@ Deux familles d'alertes : les **incidents** (état anormal persistant : une aler
 Le premier contrôle établit la référence et ne déclenche aucune alerte de changement.
 
 ## WordPress et PrestaShop (mises à jour)
+
+> **Désactivé par défaut dans le cœur.** Le connecteur est fourni avec la version hébergée, qui l'active. En auto-hébergement, il faut le demander : `SURICATE_CMS=1` dans l'environnement (ou `createApp({ cms: true })`). Désactivé, les routes du connecteur n'existent pas, aucun relevé n'est fait et la fiche d'un site n'affiche ni formulaire ni onglets CMS ; la configuration déjà enregistrée n'est pas effacée, elle est ignorée et revient à la réactivation.
 
 Pour un site WordPress ou PrestaShop, SuricateWeb ajoute l'onglet **Mises à jour** : la **version de PHP** du serveur et, pour le noyau, les extensions (les modules, sous PrestaShop) et les thèmes, la **version installée** et la **version disponible**. Une mise à jour qui tarde, ou une version de PHP qui n'est plus maintenue, déclenche une [alerte Telegram](#alertes-mises-à-jour-en-retard-et-fin-de-support-de-php).
 

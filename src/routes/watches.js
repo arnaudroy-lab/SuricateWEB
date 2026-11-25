@@ -7,6 +7,7 @@ import { widgetUrl } from './widget.js';
 import { removeWatchShots, pruneWatchShots } from '../screenshot.js';
 import { fetchPage, analyze, describeError } from '../checker.js';
 import { bus } from '../events.js';
+import { features } from '../features.js';
 import { registrable } from '../util.js';
 import { normalizeUrl, assertUrlAllowed, SELECTOR_CHECK, RESET_KEYS, rememberDomainAck, summarize, buildCtx, watchInput, loadWatch } from './shared.js';
 
@@ -23,7 +24,7 @@ export default function register({ route }) {
     const { data, cfg } = await watchInput(ctx, ctx.body);
     await SELECTOR_CHECK(cfg);
     let w = await ctx.data.createWatch(data);
-    if (w.config.cms.type) w = await updateWatch(w.id, { nextCms: Date.now() });
+    if (features.cms && w.config.cms.type) w = await updateWatch(w.id, { nextCms: Date.now() });
     enqueue(w.id);
     await ctx.app.emit('onWatchCreated', ctx, w);
     return await summarize(w, await buildCtx(ctx));
@@ -43,7 +44,7 @@ export default function register({ route }) {
         server: state.server || '', scripts: state.scripts?.length ?? null, linkHosts: state.linkHosts?.length ?? null,
         baseline: !!state.baseline,
       },
-      cms: state.cms ? { ...state.cms, phpSupport: phpSupport(state.cms.php), widgetUrl: widgetUrl(w), ...(state.cms.health?.checkedAt ? { health: { ...state.cms.health, checks: assessHealth(state.cms.health, state.cms.cms), hardeningRows: hardeningRows(state.cms.health.hardening) } } : {}) } : null,
+      cms: features.cms && state.cms ? { ...state.cms, phpSupport: phpSupport(state.cms.php), widgetUrl: widgetUrl(w), ...(state.cms.health?.checkedAt ? { health: { ...state.cms.health, checks: assessHealth(state.cms.health, state.cms.cms), hardeningRows: hardeningRows(state.cms.health.hardening) } } : {}) } : null,
       pages: w.config.pages.map((p) => {
         const href = resolvePage(w.url, p);
         const st = href ? state.pages?.[href] : null;
@@ -63,9 +64,10 @@ export default function register({ route }) {
     // (la limite de conservation n'a aucun effet sur l'image : la modifier ne déclenche pas de capture)
     const sameLook = ({ keep, ...look }) => JSON.stringify(look);
     const reshoot = data.url !== w.url || sameLook(cfg.screenshot) !== sameLook(w.config.screenshot);
-    const cmsOn = cfg.mode !== 'domain' && !!cfg.cms.type;
+    const cmsOn = features.cms && cfg.mode !== 'domain' && !!cfg.cms.type;
     const cmsChanged = JSON.stringify(cfg.cms) !== JSON.stringify(w.config.cms) || data.url !== w.url;
-    const nextCms = cmsOn ? (cmsChanged || !(w.nextCms > 0) ? Date.now() : w.nextCms) : 0;
+    // Connecteur désactivé : l'échéance enregistrée est gardée telle quelle (elle reprendra à la réactivation).
+    const nextCms = !features.cms ? w.nextCms : cmsOn ? (cmsChanged || !(w.nextCms > 0) ? Date.now() : w.nextCms) : 0;
     const u = await updateWatch(w.id, { ...data, state, nextRun: data.enabled ? 0 : w.nextRun, ...(reshoot ? { nextShot: 0 } : {}), nextCms });
     await pruneWatchShots(u.id); // une limite abaissée s'applique tout de suite
     await ctx.app.emit('onWatchUpdated', ctx, u);

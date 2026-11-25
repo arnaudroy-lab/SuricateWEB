@@ -11,6 +11,7 @@ import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
 import { clamp, SEV } from '../util.js';
 import { retranslate } from '../i18n.js';
+import { features } from '../features.js';
 import { maskWebhook } from '../slack.js';
 import { REGEX_MAX_COUNT, REGEX_MAX_LENGTH } from '../safe-regex.js';
 
@@ -191,8 +192,10 @@ export async function watchInput(ctx, body, existing) {
   const s = await settingsFor(ctx.account.id);
   const limits = await ctx.limits();
   const cfg = normalizeConfig({ ...(existing?.config || defaultConfig()), ...(body.config || {}), checks: { ...(existing?.config.checks || {}), ...(body.config?.checks || {}) } });
-  if (cfg.cms.type && !cfg.cms.token) cfg.cms.token = randomBytes(32).toString('base64url');
-  if (cfg.cms.type && !cfg.cms.widgetToken) cfg.cms.widgetToken = randomBytes(18).toString('base64url');
+  // Connecteur CMS désactivé (voir src/features.js) : on ne le (re)configure pas ; ce qui est déjà enregistré reste tel quel.
+  if (!features.cms) cfg.cms = normalizeConfig({ cms: existing?.config.cms ?? {} }).cms;
+  if (features.cms && cfg.cms.type && !cfg.cms.token) cfg.cms.token = randomBytes(32).toString('base64url');
+  if (features.cms && cfg.cms.type && !cfg.cms.widgetToken) cfg.cms.widgetToken = randomBytes(18).toString('base64url');
   const url = body.url !== undefined ? normalizeUrl(body.url) : existing.url;
   assertUrlAllowed(url);
   validateConfig(cfg, url);

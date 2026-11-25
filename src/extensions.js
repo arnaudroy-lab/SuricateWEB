@@ -5,6 +5,7 @@
 import { defaultNotifier } from './notify.js';
 import { createNetGuard } from './net-guard.js';
 import { dueWatchIds } from './db.js';
+import { features } from './features.js';
 
 const defaults = () => ({
   /** { resolveChannels(watch, alerts, settings) → canaux } — voir src/notify.js. */
@@ -27,9 +28,10 @@ let current = defaults();
 
 export const getExtensions = () => current;
 
-export function configureExtensions({ notifier, scheduler, netGuard, entitlements } = {}) {
+export function configureExtensions({ notifier, scheduler, netGuard, entitlements, cms } = {}) {
   if (notifier && typeof notifier.resolveChannels !== 'function') throw new Error('notifier.resolveChannels doit être une fonction');
   if (netGuard && typeof netGuard.fetch !== 'function') throw new Error('netGuard doit venir de createNetGuard()');
+  if (typeof cms === 'boolean') features.cms = cms; // connecteur CMS (voir src/features.js)
   current = {
     notifier: notifier ?? current.notifier,
     scheduler: { ...current.scheduler, ...(scheduler ?? {}) },
@@ -41,4 +43,5 @@ export function configureExtensions({ notifier, scheduler, netGuard, entitlement
 /** Remet les valeurs d'origine (tests). */
 export const resetExtensions = () => {
   current = defaults();
+  features.cms = false;
 };

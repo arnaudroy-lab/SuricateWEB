@@ -3,6 +3,7 @@ import { getExtensions } from './extensions.js';
 import { runCheck } from './checker.js';
 import { captureWatch, isCapturing, engine } from './screenshot.js';
 import { pollCms } from './cms.js';
+import { features } from './features.js';
 import { bus } from './events.js';
 
 const running = new Set();
@@ -61,7 +62,7 @@ export function startScheduler() {
       }
       // Relevés CMS : fréquence propre (souvent 12 h), deux à la fois pour ne pas ouvrir toutes les boutiques d'un coup.
       let cmsSlots = 2;
-      for (const { id, config: cfg } of await dueCmsWatches(Date.now())) {
+      for (const { id, config: cfg } of features.cms ? await dueCmsWatches(Date.now()) : []) {
         if (cmsSlots <= 0) break;
         if (cfg.mode === 'domain' || (cfg.cms.type !== 'wordpress' && cfg.cms.type !== 'prestashop')) continue;
         cmsSlots--;

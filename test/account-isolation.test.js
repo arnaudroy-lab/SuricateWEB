@@ -9,6 +9,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'suricate-iso-'));
+process.env.SURICATE_CMS = '1'; // connecteur CMS activé pour ce test (désactivé par défaut : src/features.js)
+(await import('../src/features.js')).features.cms = true; // fonctions appelées sans createApp
 process.env.CHROME_PATH = '/nonexistent/chrome';
 
 const dbm = await import('../src/db.js');

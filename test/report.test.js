@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 // Rapport mensuel client : bornes du mois, calculs et mise en page.
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'suricate-report-'));
+process.env.SURICATE_CMS = '1'; // connecteur CMS activé pour ce test (désactivé par défaut : src/features.js)
+(await import('../src/features.js')).features.cms = true; // fonctions appelées sans createApp
 
 const dbm = await import('../src/db.js');
 const { monthRange, siteReport, renderReport, statusData, renderStatusPage, fmtPct } = await import('../src/report.js');

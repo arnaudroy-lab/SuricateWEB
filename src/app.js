@@ -21,6 +21,8 @@
 //                     lieu du lecteur unique du compte implicite ; `chats` ajoute des conversations autorisées pour le bot du compte (src/telegram-poll.js)
 //     netGuard,       garde réseau (src/net-guard.js) : createNetGuard({ enabled, allowedPorts, allowHosts }) ou ses options.
 //                     Défaut : celle de l'environnement (SURICATE_NET_GUARD=1), sinon inerte. À ACTIVER dès que des inconnus ajoutent des sites.
+//     cms,            true : active le connecteur WordPress / PrestaShop (plugins, relevés, widget, onglets de la fiche). Défaut : SURICATE_CMS=1 dans
+//                     l'environnement, sinon DÉSACTIVÉ (la version hébergée le passe à true). Voir src/features.js
 //     scheduler,      { concurrency, pickDue(now, limite) } : planificateur (src/extensions.js)
 //     capabilities,   fusionné dans GET /api/capabilities (ex. { mode: 'cloud', billing: true }). L'interface lit aussi :
 //                       accountLinks  [{ label, href }]  liens affichés sous le menu (ex. « Mon forfait »), chemins du même site seulement
@@ -96,6 +98,7 @@ export function createApp({
   notifier,
   scheduler,
   netGuard,
+  cms,
   telegram = null,
   capabilities = {},
   home = null,
@@ -127,12 +130,14 @@ export function createApp({
   }
   // Garde réseau : un objet createNetGuard(), des options pour en créer une, ou l'environnement ; sinon on ne touche à rien.
   const guard = netGuard?.fetch ? netGuard : netGuard ? createNetGuard(netGuard) : netGuardFromEnv(env);
-  configureExtensions({ notifier, scheduler, entitlements, ...(guard ? { netGuard: guard } : {}) });
+  // Connecteur CMS : désactivé par défaut (voir src/features.js).
+  const cmsEnabled = cms ?? /^(1|true|yes)$/i.test(env.SURICATE_CMS || '');
+  configureExtensions({ notifier, scheduler, entitlements, cms: cmsEnabled, ...(guard ? { netGuard: guard } : {}) });
 
   // Contexte commun à tous les gestionnaires (ctx.app) : ce que les routes ont besoin de savoir de l'application.
   const app = {
     info, root, env, trustProxy, clientIp, auth, entitlements,
-    capabilities: { mode: 'self-hosted', multiUser: false, billing: false, ...capabilities },
+    capabilities: { mode: 'self-hosted', multiUser: false, billing: false, ...capabilities, cms: cmsEnabled },
     /** Appelle un hook s'il existe ; son échec est journalisé, jamais propagé. */
     async emit(name, ...args) {
       try {
@@ -155,7 +160,7 @@ export function createApp({
   const api = { route, app, HttpError, HANDLED, send, sendHtml };
 
   auth.register(api); // d'abord : connexion, déconnexion, état (GET /api/auth)
-  for (const register of [registerMeta, registerWatches, registerMonitoring, registerScreenshots, registerCms, registerReports, registerGroups, registerAlerts, registerSettings, registerData, registerEvents]) register(api);
+  for (const register of [registerMeta, registerWatches, registerMonitoring, registerScreenshots, ...(cmsEnabled ? [registerCms] : []), registerReports, registerGroups, registerAlerts, registerSettings, registerData, registerEvents]) register(api);
   for (const register of extraRoutes) register(api);
 
   // ───────────── Serveur ─────────────
@@ -170,7 +175,7 @@ export function createApp({
       const status = req.method === 'GET' && /^\/status\/([A-Za-z0-9_-]{1,80})\/?$/.exec(url.pathname);
       if (status) return await serveStatusPage(req, res, status[1], url.searchParams);
       const widget = req.method === 'GET' && /^\/widget\/([A-Za-z0-9_-]{16,64})\.json$/.exec(url.pathname);
-      if (widget) return await serveWidget(req, res, widget[1]);
+      if (widget && cmsEnabled) return await serveWidget(req, res, widget[1]);
       if (home && (url.pathname === '/' || homePaths.includes(url.pathname)) && (req.method === 'GET' || req.method === 'HEAD')) {
         // À cette adresse, la réponse dépend de la session : visiteur → page d'accueil, compte connecté → application. `vary: cookie`
         // empêche un cache intermédiaire (CDN, proxy) de resservir l'une à la place de l'autre.
