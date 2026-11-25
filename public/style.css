@@ -720,6 +720,7 @@ textarea.input { height: auto; }
 }
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; padding: 0; }
+  .plugin-dl { display: none; } /* téléchargement des plugins : une tâche de bureau (installer sur un site), pas de téléphone */
   /* Barre du bas : le verre est conservé, mais sans le défilement ni le débordement de la barre latérale de bureau. */
   .sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; max-height: none; overflow: visible; flex-direction: row; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid var(--sw-glass-border); border-radius: 20px 20px 0 0; z-index: 40; }
   .side-foot .tg-state, .side-foot .plan-box { display: none; } /* la barre du bas reste réservée à la navigation */
