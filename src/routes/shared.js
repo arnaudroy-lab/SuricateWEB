@@ -5,7 +5,7 @@ import { getExtensions } from '../extensions.js';
 import { randomBytes } from 'node:crypto';
 import { settingsFor, statusTokenInUse, getWatch, updateWatch, normalizeConfig, defaultConfig, DEFAULT_KEYWORDS, uptimeBetween, DAY_MS } from '../db.js';
 import { isRunning } from '../scheduler.js';
-import { cmsConfigError, cmsLinkOf } from '../cms.js';
+import { cmsConfigError, cmsLinkOf, cmsStackOf } from '../cms.js';
 import { resolvePage } from '../pages.js';
 import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
@@ -142,6 +142,8 @@ export async function summarize(w, ctx) {
     tlsExpires: w.state.tls?.expires || null, domainExpires: w.state.rdap?.expires || null,
     maintenanceUntil: ctx.maint?.get(w.id)?.end ?? null,
     // Lien avec le CMS (WordPress / PrestaShop) : connecté ou non, version du plugin installé, mise à jour du plugin disponible ; null sans CMS.
+    // Versions de PHP et du CMS relevées par le plugin (liste des sites) ; null sans CMS ou sans relevé.
+    stack: cmsStackOf(w),
     cmsLink: (() => { const l = cmsLinkOf(w); return l ? { ...l, error: l.error ? retranslate(l.error) : null } : null; })(),
   };
 }

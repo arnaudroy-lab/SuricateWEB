@@ -843,6 +843,7 @@ function signalChips(w) {
   }
   const cms = cmsChip(w);
   if (cms) chips.push(cms);
+  chips.push(...stackChips(w));
   return chips;
 }
 
@@ -873,6 +874,29 @@ function cmsState(w) {
 function cmsChip(w) {
   const st = cmsState(w);
   return st ? h('span', { class: `chip cms-chip ${st.tone}`, title: st.title, 'aria-label': st.title }, ic('layers'), st.text) : null;
+}
+/**
+ * Versions relevées sur le site par le plugin : PHP (orange quand son support de sécurité touche à sa fin, rouge quand il est terminé) et le CMS
+ * (orange quand une version plus récente existe). Rien sans relevé : le relevé du plugin est la seule source.
+ */
+function stackChips(w) {
+  const k = w.stack;
+  if (!k) return [];
+  const chips = [];
+  if (k.php) {
+    const tone = k.phpStatus === 'ended' ? 'crit' : k.phpStatus === 'ending' ? 'warn' : '';
+    const title = k.phpStatus === 'ended' ? tr('PHP {version} : le support de sécurité est terminé, passez à une version maintenue.', { version: k.php })
+      : k.phpStatus === 'ending' ? tr('PHP {version} : la fin du support de sécurité approche.', { version: k.php })
+        : tr('PHP {version}, relevé sur le site par le plugin.', { version: k.php });
+    chips.push(h('span', { class: `chip php-chip ${tone}`, title, 'aria-label': title }, ic('server'), `PHP ${k.php}`));
+  }
+  if (k.cms) {
+    const kind = w.mode !== 'domain' && w.cmsLink?.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
+    const title = k.cmsAvailable ? tr('{kind} {version} : la version {available} est disponible.', { kind, version: k.cms, available: k.cmsAvailable })
+      : tr('{kind} {version}, relevé sur le site par le plugin.', { kind, version: k.cms });
+    chips.push(h('span', { class: `chip cms-version-chip ${k.cmsAvailable ? 'warn' : ''}`, title, 'aria-label': title }, ic('layers'), `${kind} ${k.cms}${k.cmsAvailable ? ' ↑' : ''}`));
+  }
+  return chips;
 }
 /** Version compacte (icône seule) dans la ligne du nom : seulement là où la colonne des indicateurs est masquée (écran étroit). */
 function cmsDot(w) {

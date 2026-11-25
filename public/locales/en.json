@@ -937,5 +937,10 @@
  "Dernière version du plugin connue : {version}.": "Last known plugin version: {version}.",
  "{kind} connecté. Plugin {version} installé, {latest} disponible : mettez-le à jour (fiche du site › Mises à jour).": "{kind} connected. Plugin {version} installed, {latest} available: update it (site page › Updates).",
  "{kind} connecté · plugin {version} (à jour) · relevé {rel}": "{kind} connected · plugin {version} (up to date) · read {rel}",
- "{kind} connecté · version du plugin inconnue (plugin très ancien : mettez-le à jour) · relevé {rel}": "{kind} connected · plugin version unknown (very old plugin: update it) · read {rel}"
+ "{kind} connecté · version du plugin inconnue (plugin très ancien : mettez-le à jour) · relevé {rel}": "{kind} connected · plugin version unknown (very old plugin: update it) · read {rel}",
+ "PHP {version} : le support de sécurité est terminé, passez à une version maintenue.": "PHP {version}: security support has ended, move to a maintained version.",
+ "PHP {version} : la fin du support de sécurité approche.": "PHP {version}: security support is ending soon.",
+ "PHP {version}, relevé sur le site par le plugin.": "PHP {version}, read from the site by the plugin.",
+ "{kind} {version} : la version {available} est disponible.": "{kind} {version}: version {available} is available.",
+ "{kind} {version}, relevé sur le site par le plugin.": "{kind} {version}, read from the site by the plugin."
 }
