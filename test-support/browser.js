@@ -12,6 +12,9 @@ const CANDIDATES = [
   '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge', '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
 ].filter(Boolean);
 
+/** Délai de démarrage de Chrome (ms). Le premier lancement sur une machine froide (CI, disque lent, plusieurs fichiers de test en parallèle) dépasse 15 s. */
+const START_TIMEOUT_MS = Number(process.env.CHROME_START_TIMEOUT_MS) || 60000;
+
 export const findChrome = () => CANDIDATES.find((p) => existsSync(p)) || null;
 
 /** Ouvre `url` et retourne { run(expression), close() }. `run` évalue (avec await) et retourne la valeur, ou lève l'exception de la page. */
@@ -26,7 +29,7 @@ export async function openPage(url, { width = 1280, height = 900 } = {}) {
   try {
     let log = '';
     const wsUrl = await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`Chrome ne démarre pas : ${log.slice(-200)}`)), 15000);
+      const t = setTimeout(() => reject(new Error(`Chrome ne démarre pas (${START_TIMEOUT_MS / 1000} s) : ${log.slice(-200)}`)), START_TIMEOUT_MS);
       child.stderr.on('data', (d) => { log += d; const m = /listening on (ws:\S+)/.exec(log); if (m) { clearTimeout(t); resolve(m[1]); } });
     });
     const ws = new WebSocket(wsUrl);

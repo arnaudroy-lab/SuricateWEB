@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # Premier lancement de Chrome sur une machine froide : lent. On le fait une fois ici pour que les tests en parallèle ne s'y attendent pas.
+      - run: google-chrome --headless=new --no-sandbox --disable-gpu --dump-dom about:blank > /dev/null 2>&1 || true
       # `npm test` échoue avec certaines versions de Node (voir CLAUDE.md) : on lance le lanceur de tests directement.
       - run: node --disable-warning=ExperimentalWarning --test test/*.test.js
         env:
