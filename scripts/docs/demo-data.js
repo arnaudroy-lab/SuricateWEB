@@ -66,7 +66,7 @@ const CMS_REPORTS = {
       item('Akismet Anti-spam', 'akismet', '5.3.5'),
       item('Redirection', 'redirection', '5.5.0'),
       item('Hello Dolly', 'hello-dolly', '1.7.2', null, { active: false }),
-      item('SuricateWeb', 'suricateweb', '1.8.0'), // le plugin lui-même, à jour : pastille verte « WP v1.8.0 » dans la liste des sites
+      item('SuricateWeb', 'suricateweb', '1.8.1'), // le plugin lui-même, à jour : pastille verte « WP v1.8.1 » dans la liste des sites
     ],
     themes: [
       item(T('Cabinet Martin (thème enfant)', 'Martin Accounting (child theme)'), 'cabinet-martin-child', '2.4.0'),

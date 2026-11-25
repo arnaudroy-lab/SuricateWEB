@@ -368,7 +368,7 @@ Chaque site WordPress ou PrestaShop porte une **pastille** dans la liste (colonn
 
 | Pastille | Signification |
 |---|---|
-| **WP v1.8.0** (verte) | connecté : le dernier relevé a réussi, et le plugin installé est à jour |
+| **WP v1.8.1** (verte) | connecté : le dernier relevé a réussi, et le plugin installé est à jour |
 | **PS v1.4.0 ↑** (orange) | connecté, mais le plugin installé est **plus ancien** que celui que SuricateWeb propose en téléchargement : mettez-le à jour |
 | **WP v1.8.0 · non joint** (rouge) | le dernier relevé a échoué (jeton refusé, site injoignable…) ; la dernière version connue reste affichée, et l'infobulle donne l'erreur |
 | **WP · en attente** (grise) | aucun relevé pour le moment : installez le plugin, collez le jeton, puis **Actualiser** |
