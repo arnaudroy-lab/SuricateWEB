@@ -463,9 +463,25 @@ function empty(icon, title, text, ...actions) {
   return h('div', { class: 'card empty' }, h('div', { class: 'art' }, ic(icon)), h('h2', {}, title), text ? h('p', {}, text) : null, ...actions);
 }
 
+/**
+ * Boutons de téléchargement des plugins WordPress / PrestaShop, avec la version livrée. Un repère orange compte les sites dont le plugin installé
+ * est plus ancien que celui-ci (le lien CMS du site le dit : cmsLink.outdated).
+ */
+function pluginButtons(plugins, sites) {
+  return (plugins || []).map((p) => {
+    const kind = p.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
+    const old = sites.filter((w) => w.cmsLink?.type === p.type && w.cmsLink.outdated).length;
+    const title = tr('Télécharger le plugin {kind} {version}, à installer sur le site puis à relier avec son jeton.', { kind, version: p.version })
+      + (old ? ' ' + plural(old, tr('site a un plugin plus ancien à mettre à jour.'), tr('sites ont un plugin plus ancien à mettre à jour.')) : '');
+    return h('a', { class: 'btn plugin-dl', href: `/api/plugins/${p.file}`, download: '', title, 'aria-label': title },
+      ic('download'), tr('Plugin {kind}', { kind }), h('span', { class: 'ver' }, `v${p.version}`), old ? h('span', { class: 'pill warn' }, `${old} ↑`) : null);
+  });
+}
+
 // ───────────── Tableau de bord ─────────────
 async function viewDashboard() {
-  const [list, settings, groups] = await Promise.all([api('/watches'), S.settings ? Promise.resolve(S.settings) : api('/settings'), api('/groups')]);
+  // Plugins à télécharger : si le droit manque (invité) ou si la route est absente, la liste s'affiche sans les boutons.
+  const [list, settings, groups, plugins] = await Promise.all([api('/watches'), S.settings ? Promise.resolve(S.settings) : api('/settings'), api('/groups'), api('/plugins').then((r) => r.plugins).catch(() => [])]);
   S.watches = list;
   S.groups = groups;
   S.settings = settings;
@@ -484,6 +500,7 @@ async function viewDashboard() {
   root.append(h('div', { class: 'page-head' },
     h('div', {}, h('h1', {}, tr('Mes sites')), h('p', {}, tr('Contrôle permanent de l\'intégrité de vos sites, sans avoir à les ouvrir.'))),
     h('div', { class: 'actions' },
+      ...pluginButtons(plugins, list),
       h('button', { class: 'btn', onclick: guard(async (e) => {
         const b = e.currentTarget;
         b.disabled = true;

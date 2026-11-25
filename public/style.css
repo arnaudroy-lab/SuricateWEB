@@ -143,6 +143,8 @@ a.btn:hover { text-decoration: none; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .page-head p { color: var(--muted); margin-top: 4px; }
 .page-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plugin-dl .ver { font: 600 10.5px/1 var(--mono); letter-spacing: 0; color: var(--muted); }
+.plugin-dl .pill { margin-left: 2px; }
 
 /* ───── Boutons & champs ───── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s, transform .05s; }

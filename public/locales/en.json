@@ -948,5 +948,9 @@
  "modules": "modules",
  "thèmes": "themes",
  "le CMS": "the CMS",
- "Mises à jour en attente sur le site : {parts} (fiche du site › Mises à jour).": "Updates pending on the site: {parts} (site page › Updates)."
+ "Mises à jour en attente sur le site : {parts} (fiche du site › Mises à jour).": "Updates pending on the site: {parts} (site page › Updates).",
+ "Télécharger le plugin {kind} {version}, à installer sur le site puis à relier avec son jeton.": "Download the {kind} plugin {version}, to install on the site then link with its token.",
+ "site a un plugin plus ancien à mettre à jour.": "site has an older plugin to update.",
+ "sites ont un plugin plus ancien à mettre à jour.": "sites have an older plugin to update.",
+ "Plugin {kind}": "{kind} plugin"
 }
