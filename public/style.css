@@ -243,6 +243,8 @@ textarea.input { height: auto; min-height: 84px; padding: 10px 12px; resize: ver
 .tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .sites { overflow: hidden; }
 .site { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(130px, 1fr) 128px 104px 118px 40px; gap: 16px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+/* Grand écran : la colonne du nom n'a pas besoin de plus de place que ses noms (≈ 360 px) ; le reste va aux pastilles (certificat, domaine, PHP, CMS, mises à jour). */
+@media (min-width: 1600px) { .site { grid-template-columns: minmax(220px, 360px) minmax(130px, 1fr) 128px 104px 118px 40px; } }
 .site:last-child { border-bottom: 0; }
 .site:hover { background: var(--surface-2); }
 .site.dim { opacity: .62; }
