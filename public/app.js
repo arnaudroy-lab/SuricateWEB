@@ -896,6 +896,17 @@ function stackChips(w) {
       : tr('{kind} {version}, relevé sur le site par le plugin.', { kind, version: k.cms });
     chips.push(h('span', { class: `chip cms-version-chip ${k.cmsAvailable ? 'warn' : ''}`, title, 'aria-label': title }, ic('layers'), `${kind} ${k.cms}${k.cmsAvailable ? ' ↑' : ''}`));
   }
+  const n = k.pending?.total || 0;
+  if (n) {
+    const shop = w.cmsLink?.type === 'prestashop';
+    const parts = [
+      k.pending.core ? tr('le CMS') : null,
+      k.pending.extensions ? plural(k.pending.extensions, shop ? tr('module') : tr('extension'), shop ? tr('modules') : tr('extensions')) : null,
+      k.pending.themes ? plural(k.pending.themes, tr('thème'), tr('thèmes')) : null,
+    ].filter(Boolean).join(', ');
+    const title = tr('Mises à jour en attente sur le site : {parts} (fiche du site › Mises à jour).', { parts });
+    chips.push(h('span', { class: 'chip warn updates-chip', title, 'aria-label': title }, ic('refresh'), plural(n, tr('mise à jour'), tr('mises à jour'))));
+  }
   return chips;
 }
 /** Version compacte (icône seule) dans la ligne du nom : seulement là où la colonne des indicateurs est masquée (écran étroit). */
@@ -1549,24 +1560,30 @@ function hardeningCard(w, hl) {
       hl?.checkedAt ? tr('Le plugin installé sur le site ne propose pas encore le durcissement : mettez-le à jour (version 1.6 ou plus), puis actualisez.') : tr('Le durcissement apparaît après le premier relevé de santé.'))));
   }
   const apply = async (body, done) => {
+    // Pendant l'envoi, toute la carte est bloquée : l'ordre suivant partirait avant que l'état affiché ne soit à jour.
+    card?.querySelectorAll('input, button').forEach((x) => { x.disabled = true; });
     const r = await api(`/watches/${w.id}/cms/harden`, { method: 'POST', body });
     toast(r.ok ? done : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
+    // Réglage appliqué mais état non relu : ce n'est pas un échec de l'activation, on le dit à part.
+    if (r.ok && r.refreshError) toast(tr('Appliqué, mais l\'état du site n\'a pas pu être relu : {error}', { error: r.refreshError }), 'err');
     route();
   };
   const pending = rows.filter((m) => m.safe && !m.effective).length;
+  let card = null;
   const row = (m) => h('label', { class: 'toggle-row' },
     h('div', { class: 'tt' }, h('b', {}, m.label, ' ', h('span', { class: `pill ${m.safe ? 'ok' : 'mute'}` }, m.safe ? tr('Recommandé') : tr('Optionnel')), m.native ? [' ', h('span', { class: 'pill mute' }, tr('Déjà actif sur le site'))] : null), h('span', {}, m.desc)),
     h('span', { class: 'switch' }, h('input', { type: 'checkbox', checked: m.effective, disabled: m.native, onchange: guard(async (e) => {
       e.target.disabled = true;
       await apply({ measures: { [m.id]: e.target.checked } }, e.target.checked ? tr('Mesure activée') : tr('Mesure retirée'));
     }) }), h('i')));
-  return h('div', { class: 'card', style: { marginBottom: '16px' } }, head,
+  card = h('div', { class: 'card', style: { marginBottom: '16px' } }, head,
     h('div', { class: 'card-pad' },
       h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' } },
         h('button', { class: 'btn primary', disabled: !pending, onclick: guard(async (e) => { e.currentTarget.disabled = true; await apply({ preset: 'safe' }, tr('Réglages sûrs appliqués')); }) }, ic('shield'), tr('Appliquer les réglages sûrs')),
         h('span', { class: 'muted' }, pending ? plural(pending, tr('mesure recommandée à activer'), tr('mesures recommandées à activer')) : tr('Toutes les mesures recommandées sont actives.'))),
       ...rows.map(row),
       h('p', { class: 'hint muted', style: { marginBottom: 0 } }, tr('Aucun fichier du site n\'est modifié (ni wp-config.php, ni .htaccess) : chaque mesure est appliquée par le plugin à chaque chargement et se retire en la décochant. Aucune ne bloque un administrateur connecté.'))));
+  return card;
 }
 
 

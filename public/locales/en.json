@@ -942,5 +942,11 @@
  "PHP {version} : la fin du support de sécurité approche.": "PHP {version}: security support is ending soon.",
  "PHP {version}, relevé sur le site par le plugin.": "PHP {version}, read from the site by the plugin.",
  "{kind} {version} : la version {available} est disponible.": "{kind} {version}: version {available} is available.",
- "{kind} {version}, relevé sur le site par le plugin.": "{kind} {version}, read from the site by the plugin."
+ "{kind} {version}, relevé sur le site par le plugin.": "{kind} {version}, read from the site by the plugin.",
+ "Appliqué, mais l'état du site n'a pas pu être relu : {error}": "Applied, but the site state could not be read back: {error}",
+ "extensions": "extensions",
+ "modules": "modules",
+ "thèmes": "themes",
+ "le CMS": "the CMS",
+ "Mises à jour en attente sur le site : {parts} (fiche du site › Mises à jour).": "Updates pending on the site: {parts} (site page › Updates)."
 }
