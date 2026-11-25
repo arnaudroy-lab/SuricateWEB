@@ -120,7 +120,7 @@ SURICATE_PASSWORD="un mot de passe solide"     # 8 caractères minimum ; guillem
 | `PORT` | `3000` | Port d'écoute |
 | `HOST` | `127.0.0.1` | Interface d'écoute (`0.0.0.0` pour exposer sur le réseau) |
 | `DATA_DIR` | `./data` | Base SQLite et captures d'écran |
-| `TRUST_PROXY` | — | `1` derrière un reverse proxy (cookie `Secure`, IP client) |
+| `TRUST_PROXY` | — | Nombre de reverse proxys de confiance : `1` derrière Traefik/nginx, `2` si un CDN les précède (cookie `Secure`, IP client lue en partant de la fin de `X-Forwarded-For`) |
 | `CHROME_PATH` | détecté | Chemin de Chrome/Chromium pour les captures |
 | `CHROME_NO_SANDBOX` | — | `1` dans Docker (déjà défini dans l'image) |
 | `CHROME_WS_URL` | — | Chrome **distant** (`ws://hôte:port?token=…`, ex. conteneur Browserless) : le serveur s'y connecte au lieu de lancer Chrome |

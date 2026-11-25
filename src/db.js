@@ -7,6 +7,7 @@ import { clamp } from './util.js';
 import { openStore, getExtraMigrations, getSecretCodec } from './store/registry.js';
 import { migrate } from './store/migrate.js';
 import { MIGRATIONS } from './store/migrations/index.js';
+import { REGEX_MAX_COUNT } from './safe-regex.js';
 
 export const DATA_DIR = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 mkdirSync(DATA_DIR, { recursive: true });
@@ -397,7 +398,7 @@ export function normalizeConfig(input = {}) {
   c.timeoutS = clamp(c.timeoutS, 3, 60, 20);
   c.failThreshold = clamp(c.failThreshold, 1, 10, 2);
   c.minChangePct = clamp(c.minChangePct, 0, 100, 0);
-  c.ignoreRegex = strList(c.ignoreRegex);
+  c.ignoreRegex = strList(c.ignoreRegex, REGEX_MAX_COUNT + 1); // un de plus que le plafond : validateConfig le refuse au lieu de tronquer en silence
   c.forbidden = strList(c.forbidden);
   c.required = strList(c.required);
   c.allowedHosts = strList(c.allowedHosts).map((h) => h.toLowerCase());

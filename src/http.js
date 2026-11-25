@@ -60,8 +60,25 @@ export function sendHtml(res, html, extra = {}) {
 }
 
 /**
- * Adresse IP du client. Derrière un reverse proxy (Traefik, nginx…), `trustProxy` active la lecture de X-Forwarded-For :
- * sans proxy de confiance, cet en-tête serait falsifiable et contournerait la limitation de tentatives.
+ * Nombre de reverse proxys de confiance devant l'application, d'après TRUST_PROXY : « 1 »/« true »/« yes » = un proxy, « 2 » = deux
+ * (ex. CDN puis Traefik), absent/« 0 »/« false » = aucun.
  */
-export const clientIpOf = (req, trustProxy) =>
-  (trustProxy && req.headers['x-forwarded-for']?.split(',')[0].trim()) || req.socket.remoteAddress;
+export function proxyHops(value) {
+  const v = String(value ?? '').trim().toLowerCase();
+  if (/^\d{1,2}$/.test(v)) return Number(v);
+  return v === 'true' || v === 'yes' ? 1 : 0;
+}
+
+/**
+ * Adresse IP du client. Derrière `trustProxy` proxys de confiance (nombre, ou true = 1), on lit X-Forwarded-For en partant de la FIN :
+ * chaque proxy y AJOUTE l'adresse qu'il a vue, donc seules les dernières entrées sont fiables. La première est écrite par le client et
+ * permettrait de contourner toute limitation par adresse en la changeant à chaque requête.
+ */
+export function clientIpOf(req, trustProxy) {
+  const hops = trustProxy === true ? 1 : Number(trustProxy) || 0;
+  if (hops > 0) {
+    const chain = String(req.headers['x-forwarded-for'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (chain.length >= hops) return chain[chain.length - hops];
+  }
+  return req.socket.remoteAddress;
+}

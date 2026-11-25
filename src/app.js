@@ -54,7 +54,7 @@ import { startTelegramPoller, startAccountPollers } from './telegram-poll.js';
 import { configureExtensions } from './extensions.js';
 import { createNetGuard, netGuardFromEnv } from './net-guard.js';
 import { bus } from './events.js';
-import { HttpError, HANDLED, send, sendHtml, readJson, readRaw, MAX_BODY, clientIpOf } from './http.js';
+import { HttpError, HANDLED, send, sendHtml, readJson, readRaw, MAX_BODY, clientIpOf, proxyHops } from './http.js';
 import { readCredentials } from './auth.js';
 import { scopedData } from './scoped.js';
 import { createEnvAuth } from './auth-env.js';
@@ -116,8 +116,8 @@ export function createApp({
   const docsLangs = docsBase && Array.isArray(docs.languages) ? docs.languages.filter((l) => typeof l === 'string' && /^[a-z]{2}$/.test(l)) : [];
   const info = { version: String(pkg.version ?? ''), repoUrl, docsUrl: docsBase ?? webUrl(pkg.homepage) ?? (repoUrl ? `${repoUrl}#readme` : null), docsLangs };
 
-  // Derrière un reverse proxy (Dokploy/Traefik, nginx…) : TRUST_PROXY=1 active la lecture de X-Forwarded-*.
-  const trustProxy = /^(1|true|yes)$/i.test(env.TRUST_PROXY || '');
+  // Derrière un reverse proxy (Dokploy/Traefik, nginx…) : TRUST_PROXY=1 active la lecture de X-Forwarded-* (TRUST_PROXY=2 si deux proxys se suivent : CDN puis Traefik).
+  const trustProxy = proxyHops(env.TRUST_PROXY); // nombre de proxys de confiance (0 = aucun) ; voir clientIpOf
   const clientIp = (req) => clientIpOf(req, trustProxy);
 
   if (!auth) {

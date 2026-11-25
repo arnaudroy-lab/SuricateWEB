@@ -35,7 +35,27 @@ export default function register({ route }) {
         .catch(() => {});
     };
     bus.on('event', on);
-    const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+    // L'identité n'est lue qu'à l'ouverture : sans nouveau contrôle, un accès retiré (invité supprimé, session révoquée, mot de passe
+    // réinitialisé, compte suspendu) continuerait de recevoir les évènements du compte. À chaque battement, on la revérifie et on coupe.
+    // Une erreur passagère (base indisponible) ne ferme pas le flux : seule une réponse « plus d'identité » le fait.
+    let checking = false;
+    const ping = setInterval(async () => {
+      if (checking || closed) return;
+      checking = true;
+      try {
+        const identity = await ctx.app.auth.authenticate(req);
+        if (!identity || identity.account?.id !== mine) {
+          closed = true;
+          bus.off('event', on);
+          clearInterval(ping);
+          res.end();
+          return;
+        }
+      } catch { /* indisponibilité passagère : on réessaie au prochain battement */ } finally {
+        checking = false;
+      }
+      if (!closed) res.write(': ping\n\n');
+    }, Number(ctx.app.env.SURICATE_SSE_PING_MS) || 25000); // battement = fréquence de revérification de l'identité (réglable pour les tests)
     req.on('close', () => {
       closed = true;
       bus.off('event', on);

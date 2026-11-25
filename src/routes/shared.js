@@ -12,6 +12,7 @@ import { parseHtml, selectAll } from '../html.js';
 import { clamp, SEV } from '../util.js';
 import { retranslate } from '../i18n.js';
 import { maskWebhook } from '../slack.js';
+import { REGEX_MAX_COUNT, REGEX_MAX_LENGTH } from '../safe-regex.js';
 
 export function normalizeUrl(input) {
   let u = String(input || '').trim();
@@ -42,7 +43,9 @@ export function validateConfig(cfg, siteUrl) {
   for (const p of cfg.pages) {
     if (!resolvePage(siteUrl, p)) throw new HttpError(400, `Page invalide ou extérieure au site : ${p.url}`);
   }
+  if (cfg.ignoreRegex.length > REGEX_MAX_COUNT) throw new HttpError(400, `Trop d'expressions régulières (${REGEX_MAX_COUNT} au plus)`);
   for (const r of cfg.ignoreRegex) {
+    if (r.length > REGEX_MAX_LENGTH) throw new HttpError(400, `Expression régulière trop longue (${REGEX_MAX_LENGTH} caractères au plus) : ${r.slice(0, 40)}…`);
     try {
       new RegExp(r, 'i');
     } catch {

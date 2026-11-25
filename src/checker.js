@@ -22,6 +22,7 @@ import { eligibleFor } from './notify.js';
 import { getExtensions } from './extensions.js';
 import { captureWatch, engine } from './screenshot.js';
 import { bus } from './events.js';
+import { compileSafeRegex } from './safe-regex.js';
 import { sha1, registrable, isIp, SEV, fmtDuration } from './util.js';
 import { tr, plural, runWithLang, currentLocale } from './i18n.js';
 
@@ -143,15 +144,8 @@ export async function fetchPage(startUrl, cfg, settings) {
 // ───────────── Analyse du contenu ─────────────
 
 function compileRegexes(list) {
-  const out = [];
-  for (const s of list) {
-    try {
-      out.push(new RegExp(s, 'i'));
-    } catch {
-      /* ignoré : validé à l'enregistrement */
-    }
-  }
-  return out;
+  // Motifs invalides ou trop longs : ignorés (refusés à l'enregistrement) ; motif trop lent : désactivé en cours d'analyse (src/safe-regex.js).
+  return list.map(compileSafeRegex).filter(Boolean);
 }
 
 export function analyze(page, cfg) {
@@ -181,7 +175,7 @@ export function analyze(page, cfg) {
     fullLines = lines;
   }
   const res = compileRegexes(cfg.ignoreRegex);
-  if (res.length) lines = lines.filter((l) => !res.some((r) => r.test(l)));
+  if (res.length) lines = lines.filter((l) => !res.some((r) => r(l)));
   return { lines, fullLines, features, hash: sha1(lines.join('\n')), title: features?.title || '', selectorMissing };
 }
 
