@@ -23,3 +23,6 @@ jobs:
           node-version: ${{ matrix.node }}
       # `npm test` échoue avec certaines versions de Node (voir CLAUDE.md) : on lance le lanceur de tests directement.
       - run: node --disable-warning=ExperimentalWarning --test test/*.test.js
+        env:
+          # Les tests d'interface lancent Chrome. Sur les machines GitHub récentes, son bac à sable est refusé au démarrage ; la machine est jetable.
+          CHROME_NO_SANDBOX: '1'
