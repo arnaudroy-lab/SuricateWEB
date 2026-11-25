@@ -119,3 +119,56 @@ test('SSE : tant que l’accès est valide, le flux reste ouvert et bat', async 
     await app.stop();
   }
 });
+
+// ───────────── Fichiers statiques ─────────────
+
+test('statique : un dossier voisin au nom préfixé (public-x) n’est pas servi', async () => {
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const { createStaticHandler } = await import('../src/routes/static.js');
+  const root = mkdtempSync(join(tmpdir(), 'suricate-static-'));
+  mkdirSync(join(root, 'public')); mkdirSync(join(root, 'public-secret'));
+  writeFileSync(join(root, 'public', 'ok.txt'), 'public');
+  writeFileSync(join(root, 'public-secret', 'cle.txt'), 'secret');
+  const serve = createStaticHandler(join(root, 'public'));
+  const run = async (path) => {
+    let status, body = '';
+    const res = { writeHead: (s) => { status = s; }, end: (b) => { body = String(b ?? ''); }, setHeader() {} };
+    await serve({}, res, path);
+    return { status, body };
+  };
+  assert.deepEqual(await run('/ok.txt'), { status: 200, body: 'public' });
+  // normalize() d'un chemin absolu ne remonte jamais au-dessus de la racine : ces tentatives restent dans public/ (404), et la vérification
+  // du préfixe, désormais avec séparateur, couvre le cas où ce comportement changerait (défense en profondeur).
+  for (const bad of ['/x/..%2f..%2fpublic-secret/cle.txt', '/..%2fpublic-secret/cle.txt', '/%2e%2e/public-secret/cle.txt', '/..%5cpublic-secret%5ccle.txt']) {
+    const hit = await run(bad);
+    assert.notEqual(hit.status, 200, bad);
+    assert.ok(!hit.body.includes('secret') || hit.body.includes('Interdit') || hit.body.includes('Introuvable'), bad);
+  }
+});
+
+// ───────────── En-têtes personnalisés et cookies ─────────────
+
+test('config : les en-têtes de connexion (Host, Content-Length, Transfer-Encoding…) sont retirés', async () => {
+  const { normalizeConfig } = await import('../src/db.js');
+  const cfg = normalizeConfig({ headers: { Host: 'autre.interne', 'Content-Length': '0', 'Transfer-Encoding': 'chunked', 'X-Forwarded-For': '1.1.1.1', Authorization: 'Bearer x', 'X-Test': 'ok' } });
+  assert.deepEqual(cfg.headers, { authorization: 'Bearer x', 'x-test': 'ok' });
+});
+
+test('fetchPage : cookies et en-têtes personnalisés ne suivent pas une redirection vers un autre domaine', async () => {
+  const http = await import('node:http');
+  const { fetchPage } = await import('../src/checker.js');
+  const seen = {};
+  const origin = (name, handler) => new Promise((resolve) => { const s = http.createServer((req, res) => { seen[name] = req.headers; handler(req, res); }).listen(0, '127.0.0.1', () => resolve(s)); });
+  // « b » est joint par 127.0.0.1, « a » par localhost : deux noms d'hôte distincts, sans garde réseau.
+  const b = await origin('b', (req, res) => res.end('fin'));
+  const a = await origin('a', (req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${b.address().port}/`, 'set-cookie': 'sid=abc; Path=/' }); res.end(); });
+  try {
+    const page = await fetchPage(`http://localhost:${a.address().port}/`, { timeoutS: 5, headers: { authorization: 'Bearer secret', cookie: 'perso=1' } }, { userAgent: 'test' });
+    assert.equal(page.status, 200);
+    assert.equal(seen.a.authorization, 'Bearer secret', 'le site surveillé reçoit ses en-têtes');
+    assert.equal(seen.b.authorization, undefined, 'le domaine de la redirection ne reçoit pas Authorization');
+    assert.equal(seen.b.cookie, undefined, 'ni le cookie posé par le premier domaine, ni le cookie personnalisé');
+  } finally {
+    a.close(); b.close();
+  }
+});

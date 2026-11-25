@@ -354,6 +354,12 @@ function pageList(v) {
   return out;
 }
 
+/**
+ * En-têtes que l'utilisateur ne peut pas fixer sur les requêtes de contrôle : ils décrivent la connexion elle-même (hôte virtuel visé,
+ * longueur, découpage du corps, cookies de la chaîne de redirections) et permettraient d'atteindre un autre site hébergé sur la même IP.
+ */
+export const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'transfer-encoding', 'connection', 'upgrade', 'te', 'trailer', 'keep-alive', 'proxy-authorization', 'proxy-connection', 'expect', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'forwarded']);
+
 const strList = (v, max = 100) => (Array.isArray(v) ? v : String(v ?? '').split('\n')).map((x) => String(x).trim()).filter(Boolean).slice(0, max);
 
 /**
@@ -404,7 +410,7 @@ export function normalizeConfig(input = {}) {
   c.allowedHosts = strList(c.allowedHosts).map((h) => h.toLowerCase());
   const headers = {};
   for (const [k, v] of Object.entries(c.headers && typeof c.headers === 'object' ? c.headers : {})) {
-    if (/^[\w-]+$/.test(k) && String(v).length < 2000) headers[k.toLowerCase()] = String(v);
+    if (/^[\w-]+$/.test(k) && !FORBIDDEN_HEADERS.has(k.toLowerCase()) && String(v).length < 2000) headers[k.toLowerCase()] = String(v);
   }
   c.headers = headers;
   const rawCms = input.cms && typeof input.cms === 'object' ? input.cms : {};

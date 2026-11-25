@@ -1,6 +1,6 @@
 // Fichiers de l'interface (dossier public/), servis avec des en-têtes de sécurité stricts.
 import { readFile, stat } from 'node:fs/promises';
-import { join, extname, normalize } from 'node:path';
+import { join, extname, normalize, sep } from 'node:path';
 import { send } from '../http.js';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
@@ -10,7 +10,8 @@ export function createStaticHandler(publicDir) {
     let rel = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, '');
     if (!rel || rel.endsWith('/')) rel += 'index.html';
     const file = join(publicDir, rel);
-    if (!file.startsWith(publicDir)) return send(res, 403, { error: 'Interdit' });
+    // Séparateur final obligatoire : « …/public-x » commence par « …/public » sans être dedans.
+    if (file !== publicDir && !file.startsWith(publicDir.endsWith(sep) ? publicDir : publicDir + sep)) return send(res, 403, { error: 'Interdit' });
     try {
       const st = await stat(file);
       if (!st.isFile()) throw new Error();

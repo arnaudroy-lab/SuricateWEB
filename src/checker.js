@@ -94,9 +94,11 @@ async function readBody(res) {
 
 export async function fetchPage(startUrl, cfg, settings) {
   const guard = getExtensions().netGuard; // inerte par défaut : fetch() d'origine
-  const jar = new Map();
+  const jars = new Map(); // cookies PAR HÔTE : un cookie posé par un domaine n'est jamais renvoyé à un autre, au fil d'une redirection
   const chain = [];
   let cur = startUrl;
+  const bare = (u) => new URL(u).hostname.replace(/^www\./, ''); // example.fr ↔ www.example.fr : le même site
+  const startHost = bare(startUrl);
   const t0 = performance.now();
   let ttfb = 0;
   for (let hop = 0; hop <= 10; hop++) {
@@ -104,8 +106,11 @@ export async function fetchPage(startUrl, cfg, settings) {
       'user-agent': cfg.userAgent || settings.userAgent,
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'accept-language': 'fr-FR,fr;q=0.9,en;q=0.7',
-      ...cfg.headers,
+      // En-têtes personnalisés (Authorization, Cookie…) : réservés au site surveillé, jamais envoyés à un autre domaine par une redirection.
+      ...(bare(cur) === startHost ? cfg.headers : {}),
     };
+    const host = new URL(cur).hostname;
+    const jar = jars.get(host) ?? jars.set(host, new Map()).get(host);
     if (jar.size) headers.cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
     // Chaque étape d'une redirection est vérifiée comme la première : une adresse publique peut renvoyer vers une adresse interne.
     const res = await guard.fetch(cur, { redirect: 'manual', headers, signal: AbortSignal.timeout(cfg.timeoutS * 1000) });
