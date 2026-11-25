@@ -81,9 +81,12 @@ test('Chrome réel : capture JPEG + miniature, erreurs lisibles, aucun processus
   } finally {
     site.close();
   }
-  const { execSync } = await import('node:child_process');
+  const { execFileSync } = await import('node:child_process');
   const { readdirSync } = await import('node:fs');
-  assert.equal(execSync(`pgrep -f '${TEST_TMP}/suricate-chrome-' || true`).toString().trim(), '', 'aucun Chrome orphelin');
+  // pgrep est lancé SANS shell : avec « sh -c "pgrep -f motif || true" », la ligne de commande du shell contient le motif, et pgrep le
+  // trouve lui-même (faux « Chrome orphelin » sous dash). Code de sortie 1 = aucun processus : c'est le résultat attendu.
+  const orphans = (() => { try { return execFileSync('pgrep', ['-f', `${TEST_TMP}/suricate-chrome-`]).toString().trim(); } catch (e) { if (e.status === 1) return ''; throw e; } })();
+  assert.equal(orphans, '', 'aucun Chrome orphelin');
   assert.deepEqual(readdirSync(TEST_TMP).filter((n) => n.startsWith('suricate-chrome-')), [], 'aucun profil temporaire laissé');
 });
 

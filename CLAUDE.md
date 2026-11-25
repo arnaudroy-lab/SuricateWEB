@@ -17,7 +17,7 @@ Si le changement touche un plugin (`plugins/`), mettre aussi à jour sa version 
 node --disable-warning=ExperimentalWarning --test test/*.test.js
 ```
 
-Le test Chrome « aucun Chrome orphelin » (`test/screenshot.test.js`) échoue dans les conteneurs cloud, indépendamment du code.
+Les tests d'interface lancent Chrome ; sur une machine où son bac à sable est refusé (runner GitHub récent, conteneur), définir `CHROME_NO_SANDBOX=1`.
 
 ## Langue
 
