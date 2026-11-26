@@ -7,8 +7,9 @@
 //   normalizeConfig(raw)                    config.cms d'un site (lecture ET écriture) : normalise ; sans extension, le cœur garde l'objet tel quel (borné)
 //   configureWatch(cfg, { ctx, existing })  valide / complète la configuration d'un site enregistré (jetons…) ; lève une HttpError pour refuser
 //   ownsIncident(key)                       vrai pour les incidents de l'extension (catégorie « ext » ; acquittables ; ré-alerte si plus graves)
-//   incidents({ cfg, state, settings, now, domainOnly })
-//                                           → { active, keep(key), evaluated, list:[{ key, severity, title, detail, count }] }
+//   incidents({ cfg, state, settings, now, domainOnly, watch })
+//                                           → watch : le site (id, accountId…) pour décider selon son compte (ex. forfait)
+//                                           { active, keep(key), evaluated, list:[{ key, severity, title, detail, count }] }
 //                                           active : l'extension s'applique à ce site (sinon ses incidents disparaissent sans message « rétabli »)
 //                                           keep(key) : faux = ce groupe d'incidents est coupé pour ce site ; evaluated : l'état est assez récent pour juger
 //   listFields(w)                           champs ajoutés à chaque site de la liste (GET /api/watches)

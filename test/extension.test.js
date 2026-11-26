@@ -59,6 +59,7 @@ test('sans extension : aucune route, aucun module d\'interface, configuration de
 
 test('avec une extension : configuration, champs, routes, adresse publique, module d\'interface, tâches de fond', async () => {
   const calls = [];
+  const seen = [];
   const ext = {
     name: 'exemple',
     ui: { script: '/ext-exemple.js' },
@@ -73,6 +74,7 @@ test('avec une extension : configuration, champs, routes, adresse publique, modu
     watchCreated: (w) => { calls.push(`créé:${w.id}`); return null; },
     updatePatch: () => ({ nextCms: 4242 }),
     ownsIncident: (key) => key.startsWith('ext_'),
+    incidents: ({ watch }) => { seen.push(watch?.id); return { active: false }; },
   };
   const s = await start(ext);
   assert.equal((await s.call('GET', '/api/capabilities')).json.uiModule, '/ext-exemple.js');
@@ -91,6 +93,7 @@ test('avec une extension : configuration, champs, routes, adresse publique, modu
   await s.call('PUT', `/api/watches/${w.id}`, { ...body, config: { ...body.config, cms: { kind: 'wp', token: 'a' } } });
   await settle(w.id);
   assert.equal((await dbm.getWatch(w.id)).nextCms, 4242, 'le correctif de modification vient de l\'extension');
+  assert.ok(seen.includes(w.id), 'le crochet des incidents reçoit le site (donc son compte)');
   assert.ok(calls.includes('start') === false, 'start n\'est appelé que par startBackground()');
   s.app.startBackground();
   assert.ok(calls.includes('start'));

@@ -723,7 +723,7 @@ async function runCheckNow(id) {
 
   // ── Extension (aujourd'hui : le connecteur CMS) : ses incidents, évalués par ses propres règles (voir src/extension.js) ──
   const ext = getExtension();
-  const extInc = ext?.incidents ? ext.incidents({ cfg, state, settings, now, domainOnly }) : null;
+  const extInc = ext?.incidents ? ext.incidents({ cfg, state, settings, now, domainOnly, watch: w }) : null;
   if (extInc?.active) {
     // Un groupe d'alertes désactivé : ses incidents disparaissent sans message « rétabli ».
     for (const k of Object.keys(state.incidents || {})) {
