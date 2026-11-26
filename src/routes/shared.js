@@ -188,7 +188,7 @@ export async function watchInput(ctx, body, existing) {
   const limits = await ctx.limits();
   const cfg = normalizeConfig({ ...(existing?.config || defaultConfig()), ...(body.config || {}), checks: { ...(existing?.config.checks || {}), ...(body.config?.checks || {}) } });
   // Extension : valide et complète sa configuration (jetons…), ou refuse (HttpError) — voir src/extension.js.
-  hook('configureWatch', undefined, cfg, { ctx, existing });
+  await hook('configureWatch', undefined, cfg, { ctx, existing }); // asynchrone permis (ex. lire le forfait du compte)
   const url = body.url !== undefined ? normalizeUrl(body.url) : existing.url;
   assertUrlAllowed(url);
   validateConfig(cfg, url);

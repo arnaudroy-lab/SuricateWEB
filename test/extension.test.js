@@ -13,6 +13,7 @@ process.env.SURICATE_CAPTURES = '0'; // aucune capture en tâche de fond pendant
 const dbm = await import('../src/db.js');
 const { createApp } = await import('../src/app.js');
 const { setExtension, getExtension, hook } = await import('../src/extension.js');
+const { HttpError } = await import('../src/http.js');
 const { isRunning } = await import('../src/scheduler.js');
 
 const auth = { authenticate: () => ({ user: { id: 1, name: 'alice' }, account: { id: 1 } }), register: ({ route }) => route('GET', '/api/auth', () => ({}), { public: true }) };
@@ -68,7 +69,7 @@ test('avec une extension : configuration, champs, routes, adresse publique, modu
     start: () => calls.push('start'),
     stop: () => calls.push('stop'),
     normalizeConfig: (raw) => ({ kind: String(raw?.kind ?? 'aucun').slice(0, 5), token: String(raw?.token ?? '') }),
-    configureWatch: (cfg) => { if (cfg.cms.kind === 'refuse') { const e = new Error('Réglage refusé'); e.status = 400; throw Object.assign(e, { name: 'HttpError' }); } cfg.cms.token ||= 'généré'; },
+    configureWatch: async (cfg) => { await Promise.resolve(); if (cfg.cms.kind === 'nope') throw new HttpError(400, 'Réglage refusé'); cfg.cms.token ||= 'généré'; },
     listFields: (w) => ({ champListe: w.name }),
     detailFields: (w) => ({ champFiche: w.id }),
     watchCreated: (w) => { calls.push(`créé:${w.id}`); return null; },
@@ -90,6 +91,7 @@ test('avec une extension : configuration, champs, routes, adresse publique, modu
   const d = (await s.call('GET', `/api/watches/${w.id}`)).json;
   assert.deepEqual(d.config.cms, { kind: 'wp', token: 'généré' }, 'configuration normalisée puis complétée par l\'extension');
   assert.equal(d.champFiche, w.id, 'champs ajoutés à la fiche');
+  assert.equal((await s.call('POST', '/api/watches', { ...body, config: { ...body.config, cms: { kind: 'nope' } } })).status, 400, 'un crochet asynchrone peut refuser l\'enregistrement');
   await s.call('PUT', `/api/watches/${w.id}`, { ...body, config: { ...body.config, cms: { kind: 'wp', token: 'a' } } });
   await settle(w.id);
   assert.equal((await dbm.getWatch(w.id)).nextCms, 4242, 'le correctif de modification vient de l\'extension');
