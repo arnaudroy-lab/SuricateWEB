@@ -1,6 +1,6 @@
 // Réglages, Telegram (test d'envoi, détection de la conversation) et Slack (test d'envoi).
 //
-// Deux niveaux (voir db.js) : les réglages du COMPTE (Telegram, mots-clés, User-Agent, intervalle par défaut, seuil CMS,
+// Deux niveaux (voir db.js) : les réglages du COMPTE (Telegram, mots-clés, User-Agent, intervalle par défaut, délai d'alerte de l'extension,
 // conservation des captures) sont lus et écrits pour le compte de l'utilisateur. Ceux de l'INSTALLATION (adresse publique de
 // SuricateWeb) ne se modifient qu'avec le droit « instance:write » : accordé par défaut dans le cœur, refusé aux comptes clients
 // de la version hébergée, qui ne doivent pas changer l'adresse de tout le monde.

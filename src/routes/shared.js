@@ -86,13 +86,13 @@ export function domainExpiryAcked(w, ctx) {
   return !!(seen && !seen.unread && rank <= seen.max);
 }
 
-/** Incidents du CMS (mises à jour, PHP, sécurité) : acquittables, leurs données et alertes restent. */
+/** Incidents de l’extension (voir src/extension.js) : acquittables, leurs données et alertes restent. */
 
-export const isCmsIncident = (key) => !!getExtension()?.ownsIncident?.(key); // incidents de l'extension : acquittables (voir src/extension.js)
+export const isExtensionIncident = (key) => !!getExtension()?.ownsIncident?.(key); // incidents de l'extension : acquittables (voir src/extension.js)
 
 /** Acquitté tant que l'incident n'est ni plus grave ni plus gros (plus de fichiers ou de comptes) qu'au moment du clic. */
 
-export function cmsIncidentAcked(w, key, i) {
+export function extensionIncidentAcked(w, key, i) {
   const stored = w.state.incidentAck?.[key];
   return !!stored && (SEV[i.severity] || 0) <= (SEV[stored.severity] || 0) && (i.count ?? 0) <= (stored.count ?? 0);
 }
@@ -108,14 +108,14 @@ export async function rememberDomainAck(id) {
   const state = { ...w.state };
   const inc = state.incidents?.rdap_expiring;
   if (inc) state.domainAck = { ...(state.domainAck || {}), rdap_expiring: { severity: inc.severity, expires: state.rdap?.expires ?? null } };
-  const cms = Object.entries(state.incidents || {}).filter(([k]) => isCmsIncident(k));
+  const cms = Object.entries(state.incidents || {}).filter(([k]) => isExtensionIncident(k));
   if (cms.length) state.incidentAck = { ...(state.incidentAck || {}), ...Object.fromEntries(cms.map(([k, i]) => [k, { severity: i.severity, count: i.count ?? 0 }])) };
   if (inc || cms.length) await updateWatch(id, { state });
 }
 
 export async function summarize(w, ctx) {
   const quietDomain = domainExpiryAcked(w, ctx);
-  const incidents = Object.entries(w.state.incidents || {}).map(([key, i]) => ({ key, ...i, title: retranslate(i.title), detail: retranslate(i.detail), ...((key === 'rdap_expiring' && quietDomain) || (isCmsIncident(key) && cmsIncidentAcked(w, key, i)) ? { acked: true } : {}) }));
+  const incidents = Object.entries(w.state.incidents || {}).map(([key, i]) => ({ key, ...i, title: retranslate(i.title), detail: retranslate(i.detail), ...((key === 'rdap_expiring' && quietDomain) || (isExtensionIncident(key) && extensionIncidentAcked(w, key, i)) ? { acked: true } : {}) }));
   const open = incidents.filter((i) => !i.acked);
   const unread = ctx.unread[w.id] || { critical: 0, warning: 0, info: 0 };
   let status = 'ok';

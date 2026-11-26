@@ -19,7 +19,7 @@ Inspiré de [changedetection.io](https://github.com/dgtlmoon/changedetection.io)
 
 ## Sommaire
 
-[Aperçu](#aperçu) · [Démarrage](#démarrage) · [Déploiement sur Dokploy](#déploiement-sur-dokploy-docker) · [Telegram](#configurer-telegram) · [Captures d'écran](#captures-décran) · [Groupes](#groupes-de-sites) · [Ce qui est surveillé](#ce-qui-est-surveillé) · [WordPress et PrestaShop](#wordpress-et-prestashop-mises-à-jour) · [Sécurité du CMS](#sécurité-du-cms-intégrité-des-fichiers-et-administrateurs) · [Plusieurs pages](#plusieurs-pages-par-site) · [Rapport et page de statut](#rapport-mensuel-et-page-de-statut) · [Réduire le bruit](#réduire-le-bruit) · [Maintenance](#fenêtres-de-maintenance) · [Limites](#limites-à-connaître) · [Architecture](#architecture) · [Mode démo](#essayer-sans-rien-configurer-mode-démo)
+[Aperçu](#aperçu) · [Démarrage](#démarrage) · [Déploiement sur Dokploy](#déploiement-sur-dokploy-docker) · [Telegram](#configurer-telegram) · [Captures d'écran](#captures-décran) · [Groupes](#groupes-de-sites) · [Ce qui est surveillé](#ce-qui-est-surveillé) · [Plusieurs pages](#plusieurs-pages-par-site) · [Rapport et page de statut](#rapport-mensuel-et-page-de-statut) · [Réduire le bruit](#réduire-le-bruit) · [Maintenance](#fenêtres-de-maintenance) · [Limites](#limites-à-connaître) · [Architecture](#architecture) · [Mode démo](#essayer-sans-rien-configurer-mode-démo)
 
 ## Aperçu
 
@@ -56,15 +56,8 @@ Les mêmes alertes peuvent aussi arriver dans un **canal Slack** (webhook entran
 
 ![Journal des alertes, classées par jour et par sévérité](docs/screenshots/alertes.png)
 
-### Mises à jour WordPress et PrestaShop
+### Pages sensibles, rapport client
 
-Pour un site WordPress ou PrestaShop, un petit plugin permet de lire la **version de PHP** et les **mises à jour disponibles** du noyau, des extensions (modules) et des thèmes, avec la version actuelle en regard de la version disponible, et prévient quand une mise à jour tarde ou que PHP n'est plus maintenu. [Mise en place, alertes et garde-fous](#wordpress-et-prestashop-mises-à-jour).
-
-![Onglet Mises à jour : PHP, noyau, extensions et thèmes avec versions actuelles et disponibles](docs/screenshots/mises-a-jour.png)
-
-### Sécurité du CMS, pages sensibles, rapport client
-
-- **Intégrité des fichiers WordPress** : le plugin compare le noyau et les extensions du dépôt officiel aux sommes de contrôle de wordpress.org, et repère un fichier modifié, un fichier PHP ajouté (porte dérobée) ou un fichier PHP dans `uploads/`. Cherche aussi du **code suspect** (porte dérobée, code obfusqué) dans les thèmes, extensions et modules, et alerte quand un **nouvel administrateur** apparaît. [Détails](#sécurité-du-cms-intégrité-des-fichiers-et-administrateurs).
 - **Plusieurs pages par site** : panier, connexion, contact… surveillés pour les scripts, iframes, formulaires détournés et textes suspects. [Détails](#plusieurs-pages-par-site).
 - **Rapport mensuel client** (disponibilité, incidents, mises à jour, à imprimer ou enregistrer en PDF) et **page de statut** publique en lecture seule. [Détails](#rapport-mensuel-et-page-de-statut).
 
@@ -142,7 +135,7 @@ Pour le laisser tourner en continu : `pm2 start server.js --name suricateweb --n
 npm run demo
 ```
 
-Ouvrez <http://127.0.0.1:3100> (identifiant `demo`, mot de passe `demo-password`) : SuricateWeb démarre avec **des sites, des alertes, des pannes et des captures fictifs**, dans un dossier temporaire supprimé à l'arrêt. Aucune donnée de `./data` n'est touchée. Les relevés de mises à jour de « Cabinet Martin » (WordPress) et « Nova Boutique » (PrestaShop) sont fictifs, et « Wiki technique » est en maintenance. En mode démo, les contrôles, les captures et les relevés sont désactivés (un clic sur « Vérifier maintenant » l'indique), et aucune requête n'est envoyée vers l'extérieur ; Telegram n'est pas configuré.
+Ouvrez <http://127.0.0.1:3100> (identifiant `demo`, mot de passe `demo-password`) : SuricateWeb démarre avec **des sites, des alertes, des pannes et des captures fictifs**, dans un dossier temporaire supprimé à l'arrêt. Aucune donnée de `./data` n'est touchée. « Wiki technique » est en maintenance. En mode démo, les contrôles, les captures et les relevés sont désactivés (un clic sur « Vérifier maintenant » l'indique), et aucune requête n'est envoyée vers l'extérieur ; Telegram n'est pas configuré.
 
 Les images de ce document sont produites par le même jeu de données :
 
@@ -195,7 +188,7 @@ docker run -d --name suricateweb -p 3000:3000 -v suricate-data:/data \
 
 ![Réglages : notifications Telegram](docs/screenshots/reglages.png)
 
-Les options : notifications actives (coupe tous les envois sans perdre la configuration), message de **rétablissement**, **extrait des changements**, **capture d'écran jointe aux alertes critiques**, **niveau minimal** des notifications (« Attention et critique » par défaut) et **boutons** sous les messages et **adresse de SuricateWeb** (celle du bouton « Ouvrir dans SuricateWeb »). Le jeton, une fois enregistré, n'est plus renvoyé au navigateur qu'abrégé (`1234••••0000`). La section *Détection* des Réglages fixe la fréquence et le User-Agent par défaut, le nombre de captures d'écran conservées par site, le délai d'alerte des mises à jour du CMS et la liste des mots-clés suspects ; *Données* exporte et importe la liste des sites.
+Les options : notifications actives (coupe tous les envois sans perdre la configuration), message de **rétablissement**, **extrait des changements**, **capture d'écran jointe aux alertes critiques**, **niveau minimal** des notifications (« Attention et critique » par défaut) et **boutons** sous les messages et **adresse de SuricateWeb** (celle du bouton « Ouvrir dans SuricateWeb »). Le jeton, une fois enregistré, n'est plus renvoyé au navigateur qu'abrégé (`1234••••0000`). La section *Détection* des Réglages fixe la fréquence et le User-Agent par défaut, le nombre de captures d'écran conservées par site, le délai d'alerte de l'extension et la liste des mots-clés suspects ; *Données* exporte et importe la liste des sites.
 
 Un seul message est envoyé par contrôle, même si plusieurs anomalies sont détectées. Il contient la sévérité, le site, le détail et un extrait des lignes modifiées.
 
@@ -343,215 +336,6 @@ Deux familles d'alertes : les **incidents** (état anormal persistant : une aler
 
 Le premier contrôle établit la référence et ne déclenche aucune alerte de changement.
 
-## WordPress et PrestaShop (mises à jour)
-
-Pour un site WordPress ou PrestaShop, SuricateWeb ajoute l'onglet **Mises à jour** : la **version de PHP** du serveur et, pour le noyau, les extensions (les modules, sous PrestaShop) et les thèmes, la **version installée** et la **version disponible**. Une mise à jour qui tarde, ou une version de PHP qui n'est plus maintenue, déclenche une [alerte Telegram](#alertes-mises-à-jour-en-retard-et-fin-de-support-de-php).
-
-| WordPress | PrestaShop |
-|---|---|
-| ![Onglet Mises à jour d'un site WordPress](docs/screenshots/mises-a-jour.png) | ![Onglet Mises à jour d'un site PrestaShop](docs/screenshots/mises-a-jour-prestashop.png) |
-
-### Ce que l'onglet affiche
-
-- **En-tête** : le CMS et sa version, la version de PHP, la date du relevé et le bouton **Actualiser** (relevé immédiat).
-- **Trois tableaux**, *Noyau*, *Extensions* (ou *Modules*) et *Thèmes*, avec la version actuelle, la version disponible et un état :
-  - **Mise à jour** : une version plus récente existe (ces lignes passent en premier) ;
-  - **À jour** ;
-  - **Inconnue** : le CMS ne sait pas dire si une version plus récente existe (module hors catalogue, thème sur mesure).
-- Un élément désactivé est marqué **inactif** : il reste pourtant installé sur le serveur, donc à tenir à jour ou à supprimer.
-- Une **pastille** sur l'onglet donne le nombre de mises à jour disponibles (noyau, extensions et thèmes réunis).
-- Si un relevé échoue (plugin désactivé, jeton refusé, site en panne…), le tableau reste celui du **dernier relevé réussi**, avec le message d'erreur, et SuricateWeb réessaie plus tôt que d'habitude (au plus 30 minutes plus tard).
-
-### Dans la liste des sites : le CMS est-il connecté ?
-
-Chaque site WordPress ou PrestaShop porte une **pastille** dans la liste (colonne des indicateurs, à côté du certificat et du domaine) : **WP** ou **PS**, avec la **version du plugin installé** sur le site.
-
-| Pastille | Signification |
-|---|---|
-| **WP v1.8.1** (verte) | connecté : le dernier relevé a réussi, et le plugin installé est à jour |
-| **PS v1.4.0 ↑** (orange) | connecté, mais le plugin installé est **plus ancien** que celui que SuricateWeb propose en téléchargement : mettez-le à jour |
-| **WP v1.8.0 · non joint** (rouge) | le dernier relevé a échoué (jeton refusé, site injoignable…) ; la dernière version connue reste affichée, et l'infobulle donne l'erreur |
-| **WP · en attente** (grise) | aucun relevé pour le moment : installez le plugin, collez le jeton, puis **Actualiser** |
-
-Sans pastille : le site n'a pas de CMS configuré (ou c'est un « Domaine seul »). L'infobulle détaille l'état et la date du relevé ; sur écran étroit (≤ 1100 px), où la colonne des indicateurs est masquée, la pastille se réduit à une icône colorée dans la ligne du nom.
-
-La version du plugin est lue dans le relevé : annoncée par le plugin, sinon dans la ligne qu'il occupe lui-même dans la liste des extensions, donc **sans mettre le plugin à jour**. Un plugin très ancien qui n'y figure pas est indiqué « connecté, version inconnue », jamais « à jour » par défaut. L'API (`GET /api/watches`) porte `cmsLink` : `{ type, status, version, latest, outdated, checkedAt, error }`.
-
-### Mise en place
-
-Le relevé se fait **depuis le site**, là où ces informations existent : un petit plugin, installé sur le site, ne répond qu'à SuricateWeb. Il n'envoie rien de lui-même.
-
-![Formulaire d'un site : bloc WordPress / PrestaShop avec le jeton, le dossier, la fréquence du relevé et le lien de téléchargement du plugin](docs/screenshots/formulaire-cms.png)
-
-1. **Modifier** le site, bloc **WordPress / PrestaShop** : choisissez le CMS. Un **jeton** aléatoire est généré (boutons **Générer** et **Copier**), et l'**adresse interrogée** s'affiche. Renseignez le **Dossier** seulement si le CMS n'est pas à la racine du domaine (`blog` pour `exemple.fr/blog`) et la **fréquence du relevé** : 1 h, 6 h, **12 h (par défaut)**, 24 h ou 7 jours. Enregistrez.
-2. **Téléchargez le plugin** (liens dans le même bloc, ou dans l'onglet Mises à jour tant qu'aucun relevé n'a eu lieu), installez-le et activez-le.
-3. Collez le jeton dans les réglages du plugin (WordPress : *Outils › SuricateWeb › Réglages* ; PrestaShop : *Modules › Gestionnaire de modules › SuricateWeb › Configurer*).
-4. Ouvrez l'onglet **Mises à jour** et cliquez sur **Actualiser**.
-
-**Mise à jour du plugin** : un plugin installé avant la version 1.1 continue de fournir les versions, mais pas l'intégrité des fichiers ni les administrateurs (ni, avant la 1.3, la recherche de code suspect) ; l'onglet *Sécurité* indique alors « plugin trop ancien ». Remplacez le plugin par la nouvelle archive (le jeton est conservé).
-
-L'adresse appelée est toujours celle du site surveillé, suivie d'un chemin fixe : `/?rest_route=/suricateweb/v1/status` pour WordPress (avec ou sans permaliens), `/modules/suricateweb/status.php` pour PrestaShop. Le téléchargement du plugin n'est possible que connecté à SuricateWeb ; l'archive est fabriquée à la demande depuis le dossier `plugins/`.
-
-### Ce qui circule, et les garde-fous
-
-- **Le plugin ne renvoie que** la version de PHP, la version du CMS et, pour chaque extension, module ou thème : son nom, son identifiant, sa version installée, la version disponible et son état (actif ou non). Depuis la version 1.1, il renvoie aussi le **nombre d'administrateurs** (avec, sous WordPress, l'identifiant de connexion et la date de création de ceux créés depuis 30 jours) et, pour le contrôle d'intégrité, des **chemins de fichiers** (jamais leur contenu) et, depuis la version 1.3, pour le code suspect : un chemin, l'identifiant du motif reconnu et une empreinte courte. Ni e-mail, ni mot de passe, ni contenu, ni donnée client.
-- **Cette liste reste sensible** : elle indique à un attaquant quelles failles tenter. Sans jeton valide (comparé en temps constant), le plugin répond « non autorisé » et ne renvoie aucune donnée. Gardez le jeton secret et surveillez un site **en HTTPS** : en HTTP, le jeton transiterait en clair.
-- Le jeton est envoyé dans l'en-tête `Authorization`, jamais dans l'adresse.
-- SuricateWeb ne suit une redirection que vers le **même nom de domaine** (4 au maximum), refuse les réponses de plus de 1 Mo et abandonne après 20 secondes.
-- **Actualiser** demande au plugin de recalculer ses données. Sous WordPress, le plugin vide alors le cache des mises à jour, au plus **une fois toutes les 15 minutes**, pour ne pas solliciter wordpress.org à chaque clic.
-
-### Alertes : mises à jour en retard et fin de support de PHP
-
-SuricateWeb alerte comme pour un certificat qui expire : **une fois à l'apparition**, jamais en boucle, puis « ✅ Rétabli » quand la situation est réglée. Tant qu'elle dure, le site reste « À vérifier » (« Alerte » si elle est critique) sur le tableau de bord et l'alerte figure dans l'encadré en haut de sa page.
-
-| Alerte | Quand | Gravité |
-|---|---|---|
-| **Noyau en retard** : « WordPress 6.8.3 est disponible depuis 12 jours » | une mise à jour du noyau est en attente depuis plus que le délai réglé | avertissement ; **critique à partir de 30 jours** |
-| **Mises à jour en attente** : « 2 mises à jour en attente depuis plus de 7 jours » | des extensions (modules) ou des thèmes sont en retard : un seul message, avec la liste (8 lignes au plus), la version actuelle, la version disponible et l'ancienneté | avertissement |
-| **PHP en fin de support** : « PHP 8.2 ne sera plus maintenu le 31/12/2026 » | 90 jours avant la fin du support de sécurité de la branche installée | avertissement |
-| **PHP non maintenu** : « PHP 8.0 n'est plus maintenu » | la branche ne reçoit plus aucun correctif de sécurité | **critique** |
-
-- **Le délai** se règle dans *Réglages › Détection* : 1, 3, **7 (par défaut)**, 14 ou 30 jours.
-- **L'ancienneté** est comptée depuis le **premier relevé de SuricateWeb qui voit la mise à jour** : les CMS ne communiquent pas la date de publication. Elle continue tant que la version proposée reste la même, et repart de zéro si une version encore plus récente sort. Elle s'affiche à côté de la version disponible (« 6.8.3 · 12 j »).
-- **Une aggravation est annoncée de nouveau** : noyau qui passe à 30 jours, PHP dont le support se termine.
-- **Les dates de fin de support de PHP** viennent de [php.net/supported-versions](https://www.php.net/supported-versions.php) et sont écrites dans `src/cms-alerts.js` : à relire une fois par an et à compléter quand une nouvelle branche sort. Une branche absente de ce tableau parce que trop récente n'est jamais signalée.
-- **Site par site**, l'interrupteur « Alerter si des mises à jour tardent ou si PHP n'est plus maintenu » (bloc *WordPress / PrestaShop* du formulaire) coupe ces alertes sans message « rétabli ». Il convient quand vous ne maîtrisez pas ces versions (hébergement mutualisé, site d'un client).
-- Les alertes sont calculées à chaque contrôle à partir du **dernier relevé réussi**. Si le plugin devient injoignable, SuricateWeb conserve ce relevé et l'affiche avec l'erreur : il ne prévient pas encore que le relevé lui-même échoue.
-
-### Ce que le relevé ne peut pas dire
-
-- Une mise à jour de **PHP** : seule la version installée est lue.
-- Une mise à jour d'une extension WordPress **premium**, sauf si son propre système de mise à jour la déclare à WordPress.
-- Une mise à jour d'un module PrestaShop **absent du catalogue Addons**, ou d'un thème sur mesure : la version actuelle est affichée, la version disponible reste « inconnue ».
-- Si une mise à jour **corrige une faille**, ou si une faille est exploitable sur votre site : SuricateWeb indique les versions, pas les vulnérabilités.
-- En **mode démo**, aucun site n'est interrogé : les relevés affichés sont fictifs.
-
-## Sécurité du CMS : intégrité des fichiers et administrateurs
-
-SuricateWeb voit le HTML d'un site, pas ses fichiers. Le plugin comble ce manque : il lit les fichiers **depuis le site**, là où ils sont. L'onglet **Sécurité** (sites WordPress et PrestaShop) en présente le résultat.
-
-![Onglet Sécurité d'un site WordPress : noyau conforme, extensions vérifiées, aucun fichier PHP dans uploads et comptes administrateurs inchangés](docs/screenshots/securite.png)
-
-### Intégrité des fichiers
-
-| Contrôle | Ce que le plugin fait | Alerte |
-|---|---|---|
-| **Noyau WordPress** | compare chaque fichier de `wp-admin/`, `wp-includes/` et de la racine aux sommes de contrôle publiées par wordpress.org pour **votre version** ; cherche aussi les fichiers PHP absents de la distribution | **critique** si un fichier est modifié ou si un fichier PHP est ajouté ; avertissement si des fichiers manquent seulement |
-| **Extensions du dépôt officiel** | même comparaison, extension par extension (sommes de `downloads.wordpress.org/plugin-checksums`) | **critique** si un fichier est modifié ou ajouté |
-| **PHP dans `uploads/`** | tout fichier `.php`, `.phtml`, `.pht` ou `.phar` dans le dossier des téléversements (les `index.php` « Silence is golden » sont ignorés) | **critique** : ce dossier ne devrait contenir que des médias |
-
-- **Les extensions premium ou sur mesure** (hors dépôt officiel) et les versions inconnues du dépôt ne sont pas comparables : elles sont listées « non vérifiables », sans alerte.
-- **Les fichiers de durcissement courants** (`readme.html`, `license.txt`, `wp-config-sample.php`, `install.php`, `upgrade.php`) ne sont pas signalés s'ils manquent, et `wp-config.php` n'est pas un fichier « ajouté ».
-- **Le contrôle est lourd** (il lit tous les fichiers) : le plugin le borne à 60 secondes, garde les sommes de contrôle en cache 6 heures et le résultat 30 minutes ; **Actualiser** le relance au plus une fois toutes les 15 minutes. Il se fait à chaque relevé (toutes les 12 h par défaut).
-- **Une alerte qui grossit est annoncée de nouveau** : un deuxième fichier suspect apparaissant alors que le premier est déjà signalé déclenche un nouveau message. Quand tout est conforme, « ✅ Rétabli ».
-- **PrestaShop : couverture partielle.** PrestaShop ne publie pas de sommes de contrôle exploitables pour son cœur ni pour ses modules : le module cherche seulement des fichiers PHP dans `img/`, `upload/` et `download/` (hors les `index.php` de redirection livrés par PrestaShop).
-
-### Widget du tableau de bord (plugin 1.4)
-
-Le plugin affiche l'état du site **dans l'administration du CMS** (tableau de bord WordPress, accueil du back-office PrestaShop) : statut, disponibilité sur 30 jours, alertes ouvertes par gravité, jours restants du certificat et du domaine, et trois boutons (ouvrir SuricateWeb, rapport du mois, page de statut). Textes en français ou en anglais selon la langue de l'administration.
-
-- **Liaison automatique** : au relevé suivant, SuricateWeb donne au plugin l'adresse de son widget (`POST …/suricateweb/v1/link`, avec le jeton du plugin). Rien à configurer, à condition que l'**adresse publique de l'instance** soit renseignée. Un plugin plus ancien est laissé tranquille.
-- **Sans connexion, par jeton** : le widget est lu sur `/widget/<jeton>.json`, un jeton aléatoire **distinct** de celui du plugin (le jeton du plugin n'ouvre pas le widget, et inversement). Réponse en lecture seule : compteurs seulement, **jamais le texte d'une alerte**, ni jeton ni adresse interne. 60 requêtes par minute et par adresse ; `no-store`, `noindex`.
-- **Page du plugin (WordPress ≥ 1.8, PrestaShop ≥ 1.6)** : WordPress *Outils › SuricateWeb* (l'ancienne adresse sous Réglages y redirige) ; PrestaShop *Modules › Gestionnaire de modules › SuricateWeb › Configurer* (ou le bouton **Détail** du bloc de l'accueil). Deux onglets : **Données du site** (connexion à SuricateWeb avec le **dernier relevé**, état du site en grand, ce que le plugin voit sur le serveur, durcissement) et **Réglages** (jeton, et l'adresse du widget à coller à la main en dernier recours). Sous PrestaShop, la page montre en plus la taille de la base, le HTTPS, l'état de la boutique et le mode développement.
-- **La liaison se fait au relevé du CMS**, pas à l'installation du plugin : au plus 12 heures par défaut. Après avoir mis le plugin à jour ou saisi le jeton, ouvrez le site dans SuricateWeb › *Mises à jour* › **Actualiser** pour la faire tout de suite. La carte *Widget du tableau de bord* de cet onglet dit si le site est relié, et sinon **pourquoi** (plugin trop ancien, adresse publique de SuricateWeb absente, refus du site) ; en cas d'échec, SuricateWeb réessaie sous 30 minutes. Le POST de liaison suit les redirections du même site (http → https…), comme les lectures.
-- **Côté CMS** : le plugin lit le widget avec un délai de 3 secondes, sans suivre de redirection (adresses internes refusées sous WordPress), garde la réponse 5 minutes et n'affiche que des valeurs validées et échappées. Si SuricateWeb ne répond pas, le tableau de bord le dit sans ralentir.
-- Pour couper le widget : retirez le CMS de la fiche du site (le widget répond alors « introuvable »).
-
-
-### Santé du site (plugin 1.5)
-
-Onglet **Santé** des sites WordPress et PrestaShop : des **faits relevés sur le serveur**, jugés par SuricateWeb (les seuils sont dans SuricateWeb, donc modifiables sans mettre à jour le plugin). Le plugin n'envoie que des tailles, des booléens et des durées : jamais un contenu, ni un nom de fichier.
-
-| Contrôle | Alerte |
-|---|---|
-| **Espace disque** | **attention** sous 10 % ou 500 Mo libres, **critique** sous 3 % ou 100 Mo |
-| **Débogage** | **attention** si les erreurs PHP sont affichées aux visiteurs (`WP_DEBUG_DISPLAY`, mode développement PrestaShop) ou si `debug.log` dépasse 50 Mo |
-| **Tâches planifiées** (WP-Cron, WordPress) | **attention** si une tâche a plus d'1 h de retard, **critique** au-delà de 3 jours (publications programmées, mises à jour et sauvegardes planifiées ne partent plus) |
-| **Site masqué des moteurs de recherche** (WordPress) | **attention** : l'option « ne pas indexer » est restée cochée |
-| **HTTPS** | **attention** si l'adresse du site est en HTTP |
-| **Boutique en maintenance** (PrestaShop) | **attention** : les visiteurs voient la page de maintenance |
-| **Réglages à améliorer** : mémoire PHP sous 128 Mo, durée de script sous 30 s, options WordPress chargées à chaque page (1 Mo, **attention** au-delà de 3 Mo), extensions PHP recommandées manquantes | un seul incident groupé, en **info** |
-
-La taille de la base de données est affichée, sans alerte. Un fait que l'hébergeur ne laisse pas lire est simplement absent : jamais « normal » par défaut. Comme pour l'intégrité et le code suspect, un relevé qui échoue **garde le dernier résultat réussi** avec son erreur, et un plugin plus ancien ne perd ni ses versions ni sa sécurité (l'onglet l'invite à se mettre à jour).
-
-- **Les sauvegardes ne sont pas surveillées** : il existe trop de solutions, et un plugin ne peut pas savoir si une copie est réellement restaurable.
-- Le suivi se coupe site par site (*Modifier › WordPress / PrestaShop › Suivre la santé du site*) : ses incidents disparaissent alors sans message « rétabli ». Il fait partie du relevé du CMS (toutes les 12 h par défaut, *Actualiser* pour le relancer).
-
-### Durcissement en un clic (WordPress, plugin 1.6)
-
-Dans l'onglet **Santé**, la carte **Durcissement** applique sur le site quelques réglages de sécurité, **un par un** ou d'un clic (**Appliquer les réglages sûrs**). SuricateWeb envoie l'ordre au plugin (avec son jeton), le plugin l'enregistre, puis le relevé suivant relit l'état réel du site : l'interface n'affiche jamais ce qu'on espérait, seulement ce que le site confirme.
-
-| Mesure | Effet | Réglage sûr |
-|---|---|---|
-| **Éditeur de fichiers désactivé** | plus d'éditeur de thèmes et d'extensions dans le tableau de bord : un compte administrateur piraté ne peut plus y écrire du PHP | oui |
-| **Version de WordPress masquée** | retirée du code des pages et des flux | oui |
-| **Messages de connexion neutres** | « Identifiant ou mot de passe incorrect », sans révéler si l'identifiant existe | oui |
-| **Liste des comptes non publique** | `?author=1` et l'API REST des utilisateurs fermés aux visiteurs non connectés | oui |
-| **XML-RPC désactivé** | `xmlrpc.php` fermé (tests de mots de passe en masse) ; à éviter avec Jetpack, l'application mobile WordPress ou la publication à distance | **non**, à cocher en connaissance de cause |
-
-- **Aucun fichier du site n'est modifié** (ni `wp-config.php`, ni `.htaccess`) : chaque mesure est un filtre appliqué par le plugin à chaque chargement. Pour la retirer, décochez-la (ou désactivez le plugin). Aucune ne bloque un administrateur connecté.
-- Une mesure **déjà active sur le site** (réglée dans `wp-config.php` ou par un autre plugin) est signalée « Déjà actif sur le site » et reste intacte.
-- Le plugin ignore tout identifiant de mesure qu'il ne connaît pas : un SuricateWeb plus récent ne peut rien activer d'imprévu.
-- Le droit d'**écrire sur le site** est exigé (`site:update`) : un invité en lecture ne peut pas durcir un site. L'état se lit avec le relevé de santé (si le suivi de la santé est coupé pour le site, la carte attend qu'il soit réactivé). PrestaShop : pas de durcissement pour l'instant.
-
-### Journal d'activité (WordPress, plugin 1.7)
-
-Onglet **Activité** : ce qui s'est passé sur le site, relevé par le plugin. **Connexions** réussies et échouées, **comptes** créés, supprimés, changés de rôle ou au mot de passe réinitialisé, **extensions** installées, activées, désactivées, supprimées ou mises à jour, thème changé, WordPress mis à jour. Un filtre par groupe (Connexions, Comptes, Extensions) et la date, le compte et la source de chaque événement.
-
-**Deux alertes** en sortent :
-
-| Signal | Alerte |
-|---|---|
-| **30 échecs de connexion ou plus en une heure** (tous comptes et toutes sources) | **attention** : attaque par essais de mots de passe probable |
-| **Une connexion réussie dans les 6 dernières heures, précédée d'au moins 10 échecs de la même source dans l'heure** | **critique** : le mot de passe a peut-être été deviné |
-
-**Vie privée, par construction**
-
-- L'adresse IP n'est **jamais stockée en entier** : le plugin la tronque avant d'écrire (IPv4 au /24, `203.0.113.0` ; IPv6 au /48) et n'y ajoute qu'une **empreinte salée de 12 caractères** (propre au site) pour reconnaître la même source d'un événement à l'autre. Ni SuricateWeb ni le plugin ne peuvent retrouver l'adresse complète, et l'empreinte ne sort pas du serveur de SuricateWeb.
-- L'adresse prise en compte est `REMOTE_ADDR` : les en-têtes `X-Forwarded-For` se falsifient. Derrière un proxy ou un CDN, tous les visiteurs auraient la même source ; définir `SURICATEWEB_TRUST_PROXY` dans `wp-config.php` pour lire cet en-tête (à ne faire que si le proxy le réécrit).
-- Un identifiant saisi lors d'un **échec** de connexion n'est gardé que s'il correspond à un compte existant : on tape parfois son mot de passe dans ce champ. Les autres échecs sont enregistrés sans nom.
-- **90 jours** de conservation (plafond de 500 événements côté plugin), puis effacement automatique, côté site comme côté SuricateWeb.
-- **Activable site par site** (*Modifier › WordPress / PrestaShop › Tenir le journal d'activité*, coché par défaut). Le plugin ne consigne rien tant que SuricateWeb ne le lui a pas demandé ; en décochant, SuricateWeb l'éteint et **efface** sa copie et celle du site.
-- Pendant une attaque, les échecs au-delà de 50 par 10 minutes sont **regroupés** en un événement unique avec leur compteur, pour ne pas saturer la base du site.
-- Comme dans l'export de données du compte (version hébergée), ces événements sont des données personnelles : ils y figurent et disparaissent avec le site. Informez les utilisateurs du site (mentions légales) que les connexions sont journalisées.
-
-PrestaShop n'a pas de journal d'activité pour l'instant.
-
-### Code suspect (plugin 1.3)
-
-Les sommes de contrôle ne couvrent ni les thèmes sur mesure, ni les extensions premium, ni PrestaShop. Le plugin cherche donc aussi, **dans les fichiers PHP du site**, ce qui ressemble à du code injecté (souvent obfusqué), et suit leurs empreintes d'un relevé à l'autre.
-
-| Famille | Ce que le plugin cherche | Niveau |
-|---|---|---|
-| **Motifs forts** | `eval(base64_decode(…))` et variantes, exécution de ce qu'envoie le visiteur (`system($_POST[…])`, `$_GET['x']('…')`), `preg_replace` avec `/e`, fichier PHP écrit sur le disque ; côté serveur : `auto_prepend_file`, PHP exécuté dans des images (`.htaccess`, `.user.ini`) | **fort** |
-| **Indices à cumuler** | très longues chaînes encodées, texte reconstruit avec `chr()`, noms de variables illisibles, `goto` en série, lignes démesurées, JavaScript obfusqué, réécriture selon le visiteur (cloaking) ; un seul indice ne suffit pas | **à relire** (score cumulé) |
-| **Code chiffré par un éditeur** (ionCube, Zend Guard, Source Guardian) | reconnu à part : illisible mais légitime | **jamais d'alerte** |
-| **Dérive** | fichier PHP **ajouté ou modifié** hors mise à jour d'une extension, d'un thème, du CMS ou d'un module (un changement de version rend les changements attendus) | listé 14 jours, sans alerte |
-
-Périmètre : thèmes, extensions non vérifiables par wordpress.org, `mu-plugins`, drop-ins (`object-cache.php`…), racine du site, `wp-config.php`, `.htaccess` et `.user.ini` ; sous PrestaShop : modules, thèmes, `override/`, `classes/`, `controllers/`, `config/`, racine et fichiers de configuration des dossiers de médias.
-
-- **Alertes** : motif fort **apparu ou modifié depuis la dernière analyse** = **critique** ; motif fort déjà présent à la première analyse, ou fichier « à relire » apparu ou modifié = **avertissement** ; un fichier « à relire » déjà présent à la première analyse est seulement listé. Un seul incident regroupe les fichiers.
-- **La première analyse fixe la référence** : les fichiers déjà présents ne sont jamais des « changements », ce qui évite une avalanche d'alertes sur un site existant.
-- **Je connais ce fichier** (onglet Sécurité) : le fichier est reconnu **avec son empreinte** ; s'il est modifié ensuite, il redevient une alerte. Le code chiffré par un éditeur n'a rien à reconnaître.
-- **Rien du contenu ne quitte le site** : le plugin n'envoie que le **chemin** du fichier, l'**identifiant du motif** reconnu (liste fermée) et une empreinte courte. Pas d'extrait de code, pas de texte. L'interrupteur **Rechercher le code suspect** (formulaire du site, actif par défaut) coupe l'analyse sans toucher au reste de la sécurité.
-- **Coût borné** : fichiers lus sur 1 Mo au plus, 45 secondes par relevé ; si le site est volumineux, l'analyse reprend au relevé suivant, par ordre d'ancienneté. L'inventaire est gardé dans une option WordPress (`suricateweb_code_inventory`) ou dans `var/suricateweb-code.json` (PrestaShop) ; sans dossier inscriptible, seuls les motifs connus sont détectés.
-- **Un motif fort est un indice, pas une preuve** : une extension légitime peut contenir du code comparable. Vérifiez le fichier avant d'agir ; l'absence d'alerte ne prouve pas non plus que le site est sain (code très bien dissimulé, ou plugin lui-même compromis).
-
-### Comptes administrateurs
-
-Un nouvel administrateur est un classique après une intrusion. Le plugin ne renvoie **qu'un compteur et les créations récentes**, sans mot de passe ni e-mail :
-
-- **WordPress** : le nombre d'administrateurs, et pour ceux créés ces 30 derniers jours leur identifiant de connexion et la date de création.
-- **PrestaShop** : le nombre d'administrateurs actifs seulement (la table des employés ne date pas leur création).
-
-Le **premier relevé fixe la référence**, sans alerte. Ensuite, SuricateWeb alerte (**critique**) quand un compte apparaît ou que le compteur augmente sans création récente (un compte existant promu administrateur). Le message reste actif, sans se répéter, jusqu'à ce que vous cliquiez sur **Je connais ces comptes** (onglet Sécurité) : c'est alors la nouvelle référence, sans message « rétabli ». Un compte supprimé fait disparaître l'alerte.
-
-### Réglages et limites
-
-- Le bloc *WordPress / PrestaShop* du formulaire a un interrupteur propre, **Surveiller l'intégrité des fichiers et les comptes administrateurs** (actif par défaut), distinct de celui des alertes de mises à jour : couper l'un ne coupe pas l'autre, et les alertes éteintes disparaissent sans message « rétabli ». **Rechercher le code suspect** se coupe séparément (il dépend du précédent).
-- **Le contrôle tourne sur le site lui-même.** Un attaquant qui en a pris le contrôle peut fausser la réponse du plugin, voire le désactiver. Une absence d'anomalie est un bon signe, pas une preuve : elle ne remplace ni une sauvegarde saine ni une analyse externe. Un plugin qui cesse de répondre n'est pas signalé (voir [Limites](#limites-à-connaître)).
-- Un fichier modifié à la main (retouche d'une extension, correctif d'hébergeur) est signalé comme tout autre : c'est voulu, ces retouches sautent à la prochaine mise à jour.
-
 ## Plusieurs pages par site
 
 Une défiguration touche souvent la page d'accueil, mais les pirates visent aussi le **panier**, le **paiement**, la **connexion** et le **contact** : c'est là que se volent les cartes bancaires et les mots de passe. Dans *Modifier › Pages supplémentaires*, listez ces pages, une par ligne :
@@ -592,10 +376,8 @@ Par défaut, c'est le **dernier mois entier** ; les boutons *Mois précédent* e
 
 - **Disponibilité** du mois, indisponibilité cumulée, nombre de pannes et la plus longue, temps de réponse moyen, frise jour par jour et tableau des pannes (durées bornées au mois). Les maintenances planifiées sont listées et ne comptent pas comme des pannes.
 - **Incidents détectés** : le nombre et les titres des alertes critiques et d'avertissement du mois, sans leur détail technique.
-- **Mises à jour et sécurité** (sites WordPress / PrestaShop) : mises à jour **effectuées** pendant le mois, mises à jour en attente, version de PHP et son support, état de l'intégrité des fichiers, de la **recherche de code suspect** et des comptes administrateurs (en nombres seulement : jamais un chemin de fichier ni un motif). Un contrôle désactivé pour le site n'apparaît pas. Sous PrestaShop, l'intégrité se limite à la recherche de fichiers PHP dans les dossiers de médias, et le rapport l'indique. Dans le rapport d'un groupe, la synthèse ajoute une colonne **Sécurité**.
 - **Échéances** : certificat TLS et nom de domaine.
 
-Les mises à jour « effectuées » sont celles que SuricateWeb a **vues** d'un relevé à l'autre (version installée qui change) : à l'intervalle du relevé près, et seulement depuis l'activation du relevé CMS. Le rapport est calculé à l'ouverture, depuis les données conservées (pannes et statistiques 13 mois, fenêtres de maintenance 90 jours après leur fin, alertes selon la rétention) : un mois ancien peut donc être incomplet. Il exige d'être connecté.
 
 ### Page de statut publique
 
@@ -624,7 +406,7 @@ Sur la page d'un site, le bouton **Maintenance** ouvre un dialogue :
 
 - **Commencer** : maintenant, ou à une date et une heure précises (jusqu'à 90 jours à l'avance) ;
 - **Durée** : de 30 minutes à 3 jours (l'API accepte de 5 minutes à 7 jours) ;
-- **Note** facultative (« Mise à jour de WordPress »).
+- **Note** facultative (« Mise à jour du thème »).
 
 Une fenêtre en cours ou prévue s'affiche en bandeau bleu en haut de la page du site, avec **Terminer maintenant** (la surveillance reprend aussitôt, par un contrôle immédiat) ou **Annuler** (fenêtre à venir). Dans la liste des sites, une icône « clé à molette » signale les sites en maintenance ; son infobulle donne l'heure de fin. Une fenêtre ne concerne qu'**un site** : pour un serveur qui en héberge plusieurs, planifiez chacun.
 
@@ -665,8 +447,6 @@ L'interface existe en **français** (par défaut, quelle que soit la langue du n
 - **La disponibilité est mesurée depuis votre serveur SuricateWeb.** Une panne réseau de ce serveur peut apparaître comme une panne du site, et un site injoignable seulement depuis certains pays n'est pas vu. Pour plus de fiabilité, hébergez SuricateWeb ailleurs que les sites surveillés.
 - **Pas de rétroactivité** : la disponibilité n'est calculée qu'à partir de l'installation de cette fonction ; avant, les sites sont considérés disponibles.
 - Les résolveurs publics (1.1.1.1, 8.8.8.8, 9.9.9.9) doivent être joignables en UDP/53 depuis le serveur ; sinon la cohérence entre résolveurs est simplement ignorée.
-- **Le relevé des mises à jour n'est pas un scanner de vulnérabilités** : il compare des numéros de version fournis par le CMS (voir [ce qu'il ne peut pas dire](#ce-que-le-relevé-ne-peut-pas-dire)).
-- **Un plugin devenu injoignable n'est pas signalé** : SuricateWeb garde le dernier relevé et affiche l'erreur dans l'onglet *Mises à jour*, sans alerter. C'est aussi ce qui arrive si un pirate désactive le plugin : voir [les limites du contrôle d'intégrité](#réglages-et-limites).
 - **Les pages supplémentaires ne sont pas comparées en texte**, et ne comptent ni dans la disponibilité ni dans les captures d'écran.
 - Les adresses IP derrière un CDN tournent : SuricateWeb ne signale un changement d'IP que si **aucune** plage déjà vue n'est reconnue.
 
@@ -688,19 +468,15 @@ src/telegram-poll.js réception des clics sur les boutons (interrogation réguli
 src/screenshot.js    captures d'écran : Chrome piloté par DevTools (WebSocket natif), file d'attente, rétention
 src/auth.js          identifiants lus dans l'environnement, comparaison en temps constant, clé de session
 src/env.js           chargement du .env (avant l'ouverture de la base)
-src/scheduler.js     planificateur (5 contrôles en parallèle, relevés CMS à part)
-src/cms.js           relevé PHP / mises à jour : appel du plugin WordPress ou PrestaShop
-src/cms-alerts.js    alertes tirées du relevé : mises à jour en retard, fin de support de PHP, intégrité, administrateurs (fonctions pures, testées)
+src/scheduler.js     planificateur (5 contrôles en parallèle)
 src/pages.js         pages supplémentaires d'un site : adresse résolue (même domaine) et nom affiché
 src/report.js        rapport mensuel (par site ou groupe) et page de statut publique : calculs et mise en page HTML
-src/zip.js           archive ZIP sans compression, pour télécharger les plugins
 src/scoped.js        accès aux données limité à un compte (ctx.data) : c'est par là que les routes lisent et écrivent
                      (réglages : db.js, deux niveaux — installation et compte)
 src/db.js            sites, groupes, contrôles, versions (gzip), alertes, réglages : tout le SQL de l'application, en SQL portable, fonctions asynchrones
 src/store/sqlite.js  adaptateur de base (SQLite) : la seule porte d'accès à la base, même contrat pour tout moteur
 src/store/migrate.js migrations de schéma numérotées (src/store/migrations/), une version par moteur (SQLite, PostgreSQL)
 src/store/registry.js moteur de base remplaçable avant le premier import de db.js (+ migrations supplémentaires)
-plugins/             plugins WordPress et PrestaShop (jeton, versions, mises à jour, intégrité, administrateurs)
 public/              interface (JS/CSS vanilla, sans build)
 public/report.js     bouton « Imprimer / PDF » du rapport (sans script en ligne)
 public/layout.js     organisation en groupes : calcul pur (déplacements, pas au clavier), sans DOM, testé unitairement
@@ -740,12 +516,13 @@ Le serveur s'assemble avec `createApp(options)` (`src/app.js`). Sans option, c'e
 | `notifier` | canaux de notification d'une alerte (`src/notify.js`) : Telegram par défaut, d'autres sur demande |
 | `scheduler` | quels sites contrôler à chaque passage, et la concurrence |
 | `capabilities` | ce que `GET /api/capabilities` annonce à l'interface |
+| `extension` | crochets d'une fonction métier ajoutée (config d'un site, incidents, rapport, routes, tâches de fond, module d'interface) : voir `src/extension.js` ; aucune par défaut |
 
 **Comptes.** Chaque site et chaque groupe appartient à un compte (colonne `account_id`) ; le cœur n'en a qu'un, le compte 1. Les routes n'accèdent aux données que par `ctx.data` (`src/scoped.js`) : un compte ne voit, ne modifie ni ne supprime que les siens, et une ressource d'un autre compte répond « introuvable » (404), jamais « interdit ». Le fournisseur `auth` doit donner un `account.id` entier ≥ 1. `test/account-isolation.test.js` essaie chaque route à paramètre avec les identifiants d'un autre compte, et échoue si une nouvelle route n'y est pas ajoutée.
 
-**Réglages à deux niveaux.** Ceux de l'**installation** (secret de session, adresse publique, rétention des contrôles et des versions) et ceux du **compte** (Telegram, mots-clés, User-Agent, intervalle par défaut, seuil des mises à jour CMS, conservation des captures). Chaque contrôle, message et relevé CMS utilise les réglages du compte propriétaire du site (`settingsFor(compte)`). Modifier l'adresse publique demande le droit `instance:write`, accordé par défaut. Le flux temps réel (`/api/events`) ne transmet à chaque utilisateur que les événements de son compte. Tests : `test/account-settings.test.js` et `test/account-isolation.test.js`.
+**Réglages à deux niveaux.** Ceux de l'**installation** (secret de session, adresse publique, rétention des contrôles et des versions) et ceux du **compte** (Telegram, mots-clés, User-Agent, intervalle par défaut, délai d'alerte de l'extension, conservation des captures). Chaque contrôle, message utilise les réglages du compte propriétaire du site (`settingsFor(compte)`). Modifier l'adresse publique demande le droit `instance:write`, accordé par défaut. Le flux temps réel (`/api/events`) ne transmet à chaque utilisateur que les événements de son compte. Tests : `test/account-settings.test.js` et `test/account-isolation.test.js`.
 
-**Garde réseau (SSRF).** SuricateWeb va chercher des adresses saisies par ses utilisateurs ; sans garde, l'une d'elles peut viser le réseau interne du serveur (service de métadonnées d'un hébergeur, base de données, panneau d'administration) et en révéler le contenu. `createApp({ netGuard })` ou `SURICATE_NET_GUARD=1` l'active : seules les adresses http(s) sur les ports autorisés (80, 443, 8080, 8443 par défaut), vers des adresses IP publiques, sont permises — pour les contrôles, chaque étape d'une redirection, le relevé CMS, le certificat TLS et les captures. L'adresse IP est vérifiée au moment même de la connexion (pas de « DNS rebinding »). Des exceptions explicites existent (`SURICATE_NET_ALLOW_HOSTS`). Elle est **inactive par défaut** : sur une installation personnelle, surveiller son propre réseau est légitime. Limite : Chrome résout les adresses lui-même ; ses requêtes sont interceptées une à une, mais pour une garantie complète il faut l'isoler dans un conteneur ou un réseau sans accès à l'interne. Voir `src/net-guard.js` et `test/net-guard.test.js`.
+**Garde réseau (SSRF).** SuricateWeb va chercher des adresses saisies par ses utilisateurs ; sans garde, l'une d'elles peut viser le réseau interne du serveur (service de métadonnées d'un hébergeur, base de données, panneau d'administration) et en révéler le contenu. `createApp({ netGuard })` ou `SURICATE_NET_GUARD=1` l'active : seules les adresses http(s) sur les ports autorisés (80, 443, 8080, 8443 par défaut), vers des adresses IP publiques, sont permises — pour les contrôles, chaque étape d'une redirection, les relevés de l'extension, le certificat TLS et les captures. L'adresse IP est vérifiée au moment même de la connexion (pas de « DNS rebinding »). Des exceptions explicites existent (`SURICATE_NET_ALLOW_HOSTS`). Elle est **inactive par défaut** : sur une installation personnelle, surveiller son propre réseau est légitime. Limite : Chrome résout les adresses lui-même ; ses requêtes sont interceptées une à une, mais pour une garantie complète il faut l'isoler dans un conteneur ou un réseau sans accès à l'interne. Voir `src/net-guard.js` et `test/net-guard.test.js`.
 
 Le moteur de base se remplace avant le premier import de `src/db.js` (`configureStore` dans `src/store/registry.js`) : un adaptateur qui respecte le contrat de `src/store/sqlite.js`, vérifiable avec `test-support/adapter-contract.js`, et ses propres migrations. Les tests `test/app-extensions.test.js` illustrent chaque point d'extension.
 
@@ -757,7 +534,6 @@ Le produit s'appelle **SuricateWeb** ; il s'appelait VigieWeb. Les identifiants 
 |---|---|---|
 | `VIGIE_USER`, `VIGIE_PASSWORD`, `VIGIE_DEMO`, `VIGIE_NET_GUARD`, `VIGIE_NET_ALLOW_PORTS`, `VIGIE_NET_ALLOW_HOSTS` | `SURICATE_USER`, `SURICATE_PASSWORD`, `SURICATE_DEMO`, `SURICATE_NET_GUARD`, `SURICATE_NET_ALLOW_PORTS`, `SURICATE_NET_ALLOW_HOSTS` | Renommer les variables dans le `.env` ou chez l'hébergeur (Dokploy, Docker) |
 | `data/vigie.db` | `data/suricate.db` | Renommer le fichier **avant** de lancer la nouvelle version (avec `vigie.db-wal` et `vigie.db-shm` s'ils existent) ; sinon l'application refuse de démarrer, pour ne pas repartir d'une base vide |
-| plugins WordPress et PrestaShop `vigieweb` | `suricateweb` | Désinstaller l'ancien plugin, installer le nouveau, puis recoller le jeton affiché sur la fiche du site |
 | cookie `vigie_session`, clé `vigie-theme`, `vigie-view` | `suricate_session`, `suricate-theme`, `suricate-view` | Rien : chacun se reconnecte une fois et retrouve le thème par défaut |
 | export `vigie-sites.json` | `suricate-sites.json` | Rien : seul le nom du fichier téléchargé change |
 

@@ -36,7 +36,7 @@
 //                     Une erreur du gestionnaire ou de l'authentification ne bloque jamais l'application : elle est servie.
 //     homePaths,      adresses (en plus de « / ») pour lesquelles `home` est aussi appelé, ex. ['/en', '/en/'] pour une page d'accueil par langue ; `path` le dit.
 //                     Pour ces adresses, `home` doit répondre ou rediriger : le cœur n'a pas de fichier à y servir (404 sinon).
-//     root,           racine du cœur (public/, plugins/, package.json) ; défaut : celle de ce dépôt
+//     root,           racine du cœur (public/, package.json) ; défaut : celle de ce dépôt
 //   });
 //   await app.listen(3000, '127.0.0.1');
 //   app.startBackground();   // planificateur + lecteur Telegram
@@ -62,7 +62,6 @@ import { rememberDomainAck } from './routes/shared.js';
 import { createStaticHandler } from './routes/static.js';
 import { createStatusPageHandler } from './routes/status-page.js';
 import { setExtension, getExtension } from './extension.js';
-import { createCmsExtension } from './cms-extension.js';
 import registerMeta from './routes/meta.js';
 import registerWatches from './routes/watches.js';
 import registerMonitoring from './routes/monitoring.js';
@@ -78,9 +77,9 @@ const CORE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Actions soumises à `authorize`. Chaque route du cœur en déclare une (`perm`) ; une extension peut en ajouter pour ses routes.
- * site:read · site:create · site:update · site:delete · site:check (contrôle, capture, relevé CMS à la demande) · site:ack
+ * site:read · site:create · site:update · site:delete · site:check (contrôle, capture) · site:ack
  * maintenance:write · group:read · group:write · alert:read · alert:ack · settings:read · settings:write
- * data:export · data:import · report:read · plugin:download
+ * data:export · data:import · report:read
  * instance:write — modifier un réglage de l'INSTALLATION (adresse publique) : à refuser aux comptes clients de la version hébergée
  */
 const allowAll = () => true;
@@ -96,7 +95,7 @@ export function createApp({
   notifier,
   scheduler,
   netGuard,
-  extension = createCmsExtension(), // crochets d'une fonction métier (src/extension.js) ; null : aucune
+  extension = null, // crochets d'une fonction métier ajoutée par la version hébergée (src/extension.js) ; aucune par défaut
   telegram = null,
   capabilities = {},
   home = null,

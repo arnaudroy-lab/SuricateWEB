@@ -99,7 +99,7 @@ const MATRIX = [
   ['POST', '/api/watches/:id/toggle', 'site'], ['POST', '/api/watches/:id/check', 'site'], ['POST', '/api/watches/:id/ack', 'site'],
   ['GET', '/api/watches/:id/uptime', 'site'], ['GET', '/api/watches/:id/series', 'site'], ['GET', '/api/watches/:id/domain', 'site'],
   ['GET', '/api/watches/:id/history', 'site'], ['GET', '/api/watches/:id/screenshots', 'site'], ['POST', '/api/watches/:id/screenshot', 'site'],
-  ['POST', '/api/watches/:id/cms', 'site'], ['POST', '/api/watches/:id/cms/admins/accept', 'site'], ['POST', '/api/watches/:id/cms/code/accept', 'site'], ['POST', '/api/watches/:id/cms/harden', 'site'], ['GET', '/api/watches/:id/activity', 'site'], ['GET', '/api/watches/:id/report', 'site'],
+  ['GET', '/api/watches/:id/report', 'site'],
   ['POST', '/api/watches/:id/maintenance', 'site', { minutes: 30 }],
   ['GET', '/api/snapshots/:id/diff', 'snap'], ['GET', '/api/snapshots/:id/text', 'snap'],
   ['GET', '/api/screenshots/:id/image', 'shot'], ['DELETE', '/api/maintenance/:id', 'maint'],
@@ -108,7 +108,7 @@ const MATRIX = [
 
 test('garde : toute route privée à paramètre est dans la matrice d\'isolation (une nouvelle route doit y être ajoutée)', () => {
   const connues = new Set(MATRIX.map(([m, p]) => `${m} ${p}`));
-  const aCouvrir = app.routes().filter((r) => !r.public && r.path.includes(':') && r.path !== '/api/plugins/:file').map((r) => `${r.method} ${r.path}`);
+  const aCouvrir = app.routes().filter((r) => !r.public && r.path.includes(':')).map((r) => `${r.method} ${r.path}`);
   assert.deepEqual(aCouvrir.filter((r) => !connues.has(r)), [], 'route à paramètre absente de la matrice');
   assert.deepEqual([...connues].filter((r) => !aCouvrir.includes(r)), [], 'entrée de la matrice sans route correspondante');
 });

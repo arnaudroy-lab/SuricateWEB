@@ -8,8 +8,6 @@ import { join } from 'node:path';
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'suricate-report-'));
 
 const dbm = await import('../src/db.js');
-// Extension CMS installée (tests de fonctions appelées sans createApp ; createApp l'installe lui-même) — voir src/extension.js
-(await import('../src/extension.js')).setExtension((await import('../src/cms-extension.js')).createCmsExtension());
 const { monthRange, siteReport, renderReport, statusData, renderStatusPage, fmtPct } = await import('../src/report.js');
 const { REPORT_CSP } = await import('../src/http.js');
 
@@ -53,7 +51,7 @@ test('pourcentage : tronqué, jamais arrondi vers le haut', () => {
 });
 
 // ── Un site suivi depuis septembre, avec une panne en octobre ──
-const w = await dbm.createWatch({ name: 'Cabinet <b>Martin</b>', url: 'https://www.cabinet-martin.example/', interval: 5, config: { checks: { dns: false, tls: false, rdap: false }, cms: { type: 'wordpress', token: 'a'.repeat(32) } } });
+const w = await dbm.createWatch({ name: 'Cabinet <b>Martin</b>', url: 'https://www.cabinet-martin.example/', interval: 5, config: { checks: { dns: false, tls: false, rdap: false } } });
 await dbm.db.run('UPDATE watches SET created_at = ? WHERE id = ?', [Date.parse('2026-09-01T00:00:00Z'), w.id]);
 const o1 = await dbm.openOutage(w.id, Date.parse('2026-10-10T08:00:00Z'), 'Erreur HTTP 503', 503);
 await dbm.closeOutage(o1, Date.parse('2026-10-10T10:00:00Z')); // 2 h
@@ -67,22 +65,9 @@ await alert(Date.parse('2026-10-13T09:00:00Z'), 'warning', 'title_changed', 'Le 
 await alert(Date.parse('2026-10-13T09:05:00Z'), 'recovery', 'recovery', 'Rétabli : x');
 await alert(Date.parse('2026-10-14T09:05:00Z'), 'info', 'links_added', 'Domaine externe');
 await alert(Date.parse('2026-09-12T09:00:00Z'), 'critical', 'forbidden', 'Hors période');
-await dbm.setCmsReport(w.id, {
-  ok: true, checkedAt: NOW - H, php: '8.1.30', cms: 'wordpress', cmsVersion: '6.8',
-  core: { current: '6.8', available: '6.8.3', known: true },
-  extensions: [{ name: 'Yoast SEO', slug: 'seo', current: '24.2', available: '25.4', active: true, known: true }], themes: [],
-  history: [{ ts: Date.parse('2026-10-15T00:00:00Z'), kind: 'core', name: 'WordPress', from: '6.7.1', to: '6.8' }, { ts: Date.parse('2026-09-15T00:00:00Z'), kind: 'ext', name: 'Ancienne', from: '1', to: '2' }],
-  integrity: { checkedAt: NOW - H, ok: true, core: { known: true, modified: [], added: [], missing: [] }, plugins: [{ known: true, modified: ['a.php'], added: [], missing: [] }], uploads: { php: ['x.php'] } },
-  admins: { count: 3, added: [{ id: 9 }], extra: 1, recent: [], known: [] },
-  code: { enabled: true, ok: true, checkedAt: NOW - H, inventory: 120, drift: { files: [], more: 0, days: 14 }, files: [
-    { path: 'wp-content/uploads/secret-chemin.php', level: 'strong', origin: 'change', known: false, hits: ['eval_decode'] },
-    { path: 'wp-content/plugins/x/lib.php', level: 'review', origin: 'baseline', known: false, hits: [] },
-    { path: 'wp-content/plugins/y/enc.php', level: 'vendor', origin: 'baseline', known: false, hits: [] },
-  ] },
-}, 0);
 const watch = await dbm.getWatch(w.id);
 
-test('données du rapport : disponibilité sur le mois, pannes bornées, maintenance, alertes, mises à jour', async () => {
+test('données du rapport : disponibilité sur le mois, pannes bornées, maintenance, alertes', async () => {
   const range = monthRange('2026-10', 0, NOW);
   const s = await siteReport(watch, range, NOW);
   const expectedDown = 3 * H;
@@ -99,15 +84,9 @@ test('données du rapport : disponibilité sur le mois, pannes bornées, mainten
   assert.deepEqual([s.alerts.critical, s.alerts.warning, s.alerts.total], [1, 1, 2], 'ni rétablissement, ni info, ni hors période');
   assert.deepEqual(s.alerts.items.map((a) => a.title), ['Le titre de la page a changé', 'Nouveau script externe chargé par la page']);
   assert.equal('detail' in s.alerts.items[0], false, 'jamais le détail technique');
-  assert.equal(s.cms.applied.length, 1);
-  assert.equal(s.cms.applied[0].to, '6.8');
-  assert.equal(s.cms.pending.length, 2);
-  assert.equal(s.cms.phpSupport.status, 'ended');
-  assert.deepEqual([s.cms.integrity.issues, s.cms.admins.flagged], [2, 2]);
 
   const sept = await siteReport(watch, monthRange('2026-09', 0, NOW), NOW);
   assert.equal(sept.alerts.total, 1);
-  assert.equal(sept.cms.applied.length, 1, 'autre mois, autres mises à jour');
   const before = await siteReport(watch, monthRange('2026-08', 0, NOW), NOW);
   assert.equal(before.uptime, null, 'surveillance pas encore commencée');
 });
@@ -128,9 +107,6 @@ test('rapport HTML : échappement, mois précédent / suivant, aucun détail tec
   assert.match(html, /href="\/api\/watches\/1\/report\?month=2026-11&amp;tz=60"/);
   assert.match(html, /data-print/);
   assert.match(html, /Nouveau script externe chargé par la page/);
-  assert.match(html, /WordPress.*6\.7\.1 → <b>6\.8<\/b>/s);
-  assert.match(html, /PHP non maintenu/);
-  assert.match(html, /2 anomalies/);
   assert.match(html, /Pannes/);
   assert.doesNotMatch(html, /<script(?! src="\/report\.js" defer)/, 'aucun script en ligne');
 
@@ -138,27 +114,6 @@ test('rapport HTML : échappement, mois précédent / suivant, aucun détail tec
   const cur = renderReport({ title: 'x', sites: [await siteReport(watch, noPrev, NOW)], range: noPrev, nav: { base: '/r' }, generatedAt: NOW });
   assert.match(cur, /aria-disabled="true">Mois suivant/);
   assert.match(cur, /mois en cours/);
-});
-
-test('rapport : recherche de code suspect résumée sans jamais exposer un chemin ni un motif', async () => {
-  const s = await siteReport(watch, monthRange('2026-10', 0, NOW), NOW);
-  assert.deepEqual(s.cms.code, { checkedAt: NOW - H, alerting: 1, critical: true, toReview: 1, tracked: 120 }, 'le code chiffré par un éditeur n’alerte pas et ne compte pas à relire');
-  const html = renderReport({ title: 'x', sites: [s], range: monthRange('2026-10', 0, NOW), nav: { base: '/r' }, generatedAt: NOW });
-  assert.match(html, /Recherche de code suspect/);
-  assert.match(html, /1 fichier à vérifier/);
-  assert.match(html, /1 fichier à relire/);
-  assert.doesNotMatch(html, /secret-chemin|eval_decode/, 'le rapport va au client : ni chemin de fichier ni motif');
-});
-
-test('rapport : un contrôle de sécurité désactivé pour le site n’affiche plus d’anciens résultats', async () => {
-  const off = { ...watch, config: { ...watch.config, cms: { ...watch.config.cms, security: false } } };
-  const s = await siteReport(off, monthRange('2026-10', 0, NOW), NOW);
-  assert.deepEqual([s.cms.integrity, s.cms.code, s.cms.admins], [null, null, null]);
-  assert.doesNotMatch(renderReport({ title: 'x', sites: [s], range: monthRange('2026-10', 0, NOW), nav: { base: '/r' }, generatedAt: NOW }), /Sécurité du site/);
-  const noScan = { ...watch, config: { ...watch.config, cms: { ...watch.config.cms, codeScan: false } } };
-  const s2 = await siteReport(noScan, monthRange('2026-10', 0, NOW), NOW);
-  assert.equal(s2.cms.code, null);
-  assert.ok(s2.cms.integrity && s2.cms.admins, 'les autres contrôles restent');
 });
 
 test('rapport : un mois local (+60 min) ne reprend pas le dernier jour du mois précédent dans le temps de réponse', async () => {

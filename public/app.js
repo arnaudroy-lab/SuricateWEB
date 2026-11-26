@@ -216,7 +216,7 @@ function maintenanceDialog(w) {
     startField.hidden = true;
     whenSel.addEventListener('change', () => { startField.hidden = whenSel.value !== 'later'; });
     const dur = h('select', { class: 'input', value: '60' }, ...[[30, tr('30 minutes')], [60, tr('1 heure')], [120, tr('2 heures')], [240, tr('4 heures')], [480, tr('8 heures')], [1440, tr('24 heures')], [4320, tr('3 jours')]].map(([v, l]) => h('option', { value: String(v) }, l)));
-    const note = h('input', { class: 'input', placeholder: tr('ex. Mise à jour de WordPress'), maxlength: 140 });
+    const note = h('input', { class: 'input', placeholder: tr('ex. Mise à jour du thème'), maxlength: 140 });
     const submit = guard(async () => {
       const body = { minutes: Number(dur.value), note: note.value };
       if (whenSel.value === 'later') {
@@ -1343,31 +1343,6 @@ async function uptimeTab(w) {
   return root;
 }
 
-// ───────────── Mises à jour (WordPress / PrestaShop) ─────────────
-
-
-
-
-
-
-
-// ───────────── Santé du site : disque, débogage, tâches planifiées… ─────────────
-
-
-
-
-
-// ───────────── Journal d'activité (WordPress) ─────────────
-
-
-
-// ───────────── Sécurité du CMS : intégrité des fichiers et comptes administrateurs ─────────────
-
-
-
-
-
-
 // ───────────── Domaine & DNS ─────────────
 const CHK_ICON = { ok: 'checkCircle', warn: 'alert', bad: 'alert', na: 'info' };
 
@@ -1659,7 +1634,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     h('div', { class: 'row' }, h('div', { class: 'field' }, h('label', {}, tr('Nom')), f.name), h('div', { class: 'field' }, h('label', {}, tr('Fréquence de contrôle')), f.interval)),
     h('div', { class: 'field' }, h('label', {}, tr('Groupe')), f.group, h('span', { class: 'hint' }, tr('Pour classer vos sites dans la liste (par client, par projet…). Vous pouvez aussi les glisser-déposer.'))),
     h('div', { class: 'field' }, h('label', {}, tr('Étiquettes')), f.tags, h('span', { class: 'hint' }, tr('Séparées par des virgules — pratique pour regrouper par client.'))),
-    // Section de l'extension (voir EXT : public/ext-cms.js pour le connecteur WordPress / PrestaShop).
+    // Section de l'extension, si la version hébergée en apporte une (voir EXT en tête de ce fichier).
     extForm ? siteOnly(extForm.node) : null,
     siteOnly(details(tr('Pages supplémentaires'), [
       h('div', { class: 'field' }, h('label', {}, tr('Autres pages à surveiller')), f.pages,

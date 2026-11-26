@@ -136,52 +136,9 @@ test('pages supplémentaires : enregistrées, validées, renvoyées avec leur é
   assert.deepEqual((await detail(dom.id)).config.pages, []);
 });
 
-test('administrateurs : acceptation refusée sans relevé ni site', async () => {
-  const w = await create('Sans relevé');
-  assert.equal((await srv.post(`/api/watches/${w.id}/cms/admins/accept`)).status, 400);
-  assert.equal((await srv.post('/api/watches/9999/cms/admins/accept')).status, 404);
-  srv.logout();
-  assert.equal((await srv.post(`/api/watches/${w.id}/cms/admins/accept`)).status, 401);
-  assert.equal(await srv.login(), 200);
-});
-
-test('code suspect : « Je connais ce fichier » refusé sans relevé, sans site, sans session', async () => {
-  const w = await create('Sans analyse de code');
-  assert.equal((await srv.post(`/api/watches/${w.id}/cms/code/accept`, { path: 'a.php' })).status, 400);
-  assert.equal((await srv.post('/api/watches/9999/cms/code/accept')).status, 404);
-  srv.logout();
-  assert.equal((await srv.post(`/api/watches/${w.id}/cms/code/accept`)).status, 401);
-  assert.equal(await srv.login(), 200);
-});
-
 test('page de statut : limitation du débit par adresse', async () => {
   let last = 0;
   for (let i = 0; i < 130; i++) last = (await publicGet('/status/abcdefghijklmnopqrstuvwx')).status;
   assert.equal(last, 429);
 });
 
-test('« Tout est normal » acquitte aussi les incidents Mises à jour / Sécurité, sans effacer relevé ni alertes', async () => {
-  const { DatabaseSync } = await import('node:sqlite');
-  const w = await create('Acquit');
-  const db = new DatabaseSync(`${srv.dataDir}/suricate.db`);
-  db.exec('PRAGMA busy_timeout = 10000'); // le serveur de test écrit aussi dans cette base : attendre le verrou au lieu d'échouer (« database is locked »)
-  const state = { incidents: {
-    cms_core: { severity: 'warning', title: 'WordPress 6.8 disponible', detail: '', since: 1 },
-    cms_integrity_uploads: { severity: 'critical', title: 'PHP dans uploads', detail: '', since: 1, count: 1 },
-  }, cms: { ok: true, checkedAt: 1, core: { current: '6.7' }, extensions: [], themes: [] } };
-  db.prepare('UPDATE watches SET state = ?, last_check = 1 WHERE id = ?').run(JSON.stringify(state), w.id);
-  db.prepare("INSERT INTO alerts(watch_id, ts, severity, type, title, read) VALUES(?,?,?,?,?,0)").run(w.id, Date.now(), 'critical', 'cms_integrity_uploads', 'PHP dans uploads');
-  const open = async () => (await detail(w.id)).incidents.filter((i) => !i.acked).map((i) => i.key);
-  assert.deepEqual((await open()).sort(), ['cms_core', 'cms_integrity_uploads']);
-  assert.equal((await srv.post(`/api/watches/${w.id}/ack`)).status, 200);
-  const d = await detail(w.id);
-  assert.deepEqual(await open(), [], 'cartes retirées');
-  assert.ok(!['warning', 'critical', 'down'].includes(d.status), 'le site n’est plus en alerte');
-  assert.equal(d.cms.core.current, '6.7', 'relevé conservé');
-  assert.equal((await srv.get(`/api/alerts?watch=${w.id}`)).json.length, 1, 'alerte conservée dans l’historique');
-  // Un incident qui grossit réapparaît
-  state.incidents.cms_integrity_uploads.count = 3;
-  db.prepare('UPDATE watches SET state = ? WHERE id = ?').run(JSON.stringify({ ...JSON.parse(db.prepare('SELECT state FROM watches WHERE id = ?').get(w.id).state), incidents: state.incidents }), w.id);
-  assert.deepEqual(await open(), ['cms_integrity_uploads']);
-  db.close();
-});

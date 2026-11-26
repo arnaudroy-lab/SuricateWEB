@@ -26,28 +26,6 @@ const overflow = (page) => page.run(`(() => {
   return { vw, doc: document.documentElement.scrollWidth, out };
 })()`);
 
-test('liste des sites : les boutons de téléchargement des plugins sont masqués sur téléphone, visibles sur bureau', { skip, timeout: 120000 }, async () => {
-  const state = (page) => page.run(`(() => { const a = [...document.querySelectorAll('.plugin-dl')]; return { n: a.length, shown: a.filter((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0).length }; })()`);
-  // Téléphone : les boutons sont dans la page (le serveur les annonce) mais invisibles ; le reste de l'en-tête reste là.
-  for (const width of [360, 414, 820]) {
-    const { page, open } = await mobilePage(width);
-    try {
-      await open('#/', '.plugin-dl');
-      assert.deepEqual(await state(page), { n: 2, shown: 0 }, `${width}px : boutons de plugins masqués`);
-      assert.equal(await page.run(`!!document.querySelector('.page-head .actions .btn.primary')`), true, `${width}px : « Ajouter un site » reste visible`);
-    } finally { page.close(); }
-  }
-  // Bureau : visibles.
-  const page = await openPage(`${srv.base}/`);
-  try {
-    await page.run(`fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'boss', password: 'motdepasse-test-1' }) }).then((r) => r.status)`);
-    await page.viewport(1280, 800, { dpr: 1, mobile: false });
-    await page.navigate(`${srv.base}/`);
-    for (let i = 0; i < 100 && !(await page.run(`!!document.querySelector('.plugin-dl')`)); i++) await new Promise((r) => setTimeout(r, 80));
-    assert.deepEqual(await state(page), { n: 2, shown: 2 }, 'bureau : les deux boutons sont visibles');
-  } finally { page.close(); }
-});
-
 test('téléphone : la frise de 90 jours et la page tiennent en largeur, de 320 à 414 px', { skip, timeout: 120000 }, async () => {
   const id = (await srv.post('/api/watches', { url: 'http://127.0.0.1:9/', name: 'Mobile', interval: 15 })).json.id;
   for (const width of [320, 360, 375, 414]) {

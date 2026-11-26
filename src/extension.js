@@ -1,4 +1,4 @@
-// Point d'extension unique du cœur pour une fonction métier ajoutée par la version hébergée (aujourd'hui : le connecteur WordPress / PrestaShop).
+// Point d'extension unique du cœur pour une fonction métier ajoutée par la version hébergée (le cœur n'en embarque aucune).
 //
 // Le cœur ne sait pas ce que fait l'extension : il l'appelle à des endroits précis, TOUJOURS de façon facultative (chaque crochet peut manquer).
 // Un module SANS import, lisible de partout (db.js, contrôles, rapports) sans cycle.
@@ -17,7 +17,7 @@
 //   reportData(w, range, now)               données ajoutées au rapport mensuel d'un site (sous `cms`) ; null = rien
 //   reportCard(data, range, tz)             HTML de la section du rapport (une chaîne) ; reportSummary(data) : { pending, security } cellules du tableau de synthèse
 //   routes                                  [(api) => void] : routes supplémentaires (comme l'option `routes` de createApp)
-//   publicHandlers                          [{ pattern: RegExp, handle(req, res, match) }] : adresses publiques HORS /api (ex. /widget/<jeton>.json), GET seulement
+//   publicHandlers                          [{ pattern: RegExp, handle(req, res, match) }] : adresses publiques HORS /api (ex. /exemple/<jeton>.json), GET seulement
 //   start(app) / stop(app)                  tâches de fond (relevés périodiques) : appelés par startBackground() / stop()
 //   ui                                      { script } : module d'interface chargé par l'application (voir public/app.js, SuricateExt)
 let current = null;

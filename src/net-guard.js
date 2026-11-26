@@ -1,6 +1,6 @@
 // Garde réseau : empêche SuricateWeb d'être utilisé pour atteindre le réseau INTERNE du serveur qui l'héberge (SSRF).
 //
-// Le problème. SuricateWeb va chercher des adresses saisies par ses utilisateurs : contrôles, relevé CMS, certificat TLS, captures
+// Le problème. SuricateWeb va chercher des adresses saisies par ses utilisateurs : contrôles, relevés de l'extension, certificat TLS, captures
 // d'écran. Sans garde, quelqu'un peut déclarer « http://169.254.169.254/ » (service de métadonnées d'un hébergeur cloud, qui livre
 // des identifiants), « http://localhost:5432/ » ou un nom de domaine qui pointe vers 10.0.0.12, et lire ce que SuricateWeb y trouve
 // (statut, titre, message d'erreur, capture d'écran). Dans une installation personnelle ce n'est pas un risque (l'utilisateur
@@ -178,7 +178,7 @@ export function createNetGuard({ enabled = true, allowedPorts = DEFAULT_PORTS, a
 
   /**
    * fetch() avec contrôle de l'adresse à la connexion (redirections laissées à l'appelant). Un corps de requête texte ou binaire (`init.body`) est envoyé :
-   * les ordres donnés au plugin d'un site (liaison du widget, durcissement, journal) sont des POST JSON, et un POST sans corps lui arrivait vide (HTTP 400).
+   * un ordre donné à un service distant (POST JSON) arrivait sans corps (HTTP 400) quand il n'était pas transmis.
    * Renvoie une vraie Response : le reste du code ne voit aucune différence avec fetch().
    * Réponses gzip, deflate et brotli décompressées, comme le fait fetch.
    */

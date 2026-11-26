@@ -403,7 +403,7 @@ test('Chrome : une page autorisée qui charge une ressource INTERNE ne la charge
   }
 });
 
-test('client de la garde : un POST emporte son corps (les ordres donnés aux plugins des sites)', async () => {
+test('client de la garde : un POST emporte son corps (un ordre donné à un service distant)', async () => {
   const g = open();
   const body = JSON.stringify({ widget: 'https://s.test/widget/abc.json', accents: 'é€' });
   const r = await g.fetch(at('/post'), { method: 'POST', headers: { 'content-type': 'application/json' }, body });

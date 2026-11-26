@@ -31,8 +31,7 @@ Seule la **dernière version** publiée sur la branche `main` reçoit des correc
 Dans le périmètre :
 
 - le serveur SuricateWeb (authentification, API, interface, planificateur, captures d'écran) ;
-- l'image Docker et son script de démarrage ;
-- les plugins WordPress et PrestaShop (`plugins/`), notamment leur contrôle d'accès par jeton.
+- l'image Docker et son script de démarrage.
 
 Hors périmètre :
 
@@ -46,4 +45,3 @@ Hors périmètre :
 - Placez SuricateWeb **derrière HTTPS** (reverse proxy) dès qu'il est exposé hors de votre machine.
 - Choisissez un mot de passe long dans `SURICATE_PASSWORD` et ne partagez pas l'accès : un utilisateur connecté a la main sur toute la surveillance.
 - Ne versionnez jamais le fichier `.env`.
-- Surveillez vos sites WordPress et PrestaShop **en HTTPS** : le jeton du plugin transite dans un en-tête de requête.

@@ -5,7 +5,7 @@ import { sourceKeys, paramsOf } from '../test-support/i18n-keys.js';
 
 const pub = new URL('../public/', import.meta.url);
 const read = (f) => readFileSync(new URL(f, pub), 'utf8');
-const keys = new Set([...sourceKeys(read('app.js')), ...sourceKeys(read('layout.js')), ...sourceKeys(read('ext-cms.js'))]);
+const keys = new Set([...sourceKeys(read('app.js')), ...sourceKeys(read('layout.js'))]);
 const { LANGS } = await import('../public/i18n.js');
 const others = Object.keys(LANGS).filter((c) => c !== 'fr');
 

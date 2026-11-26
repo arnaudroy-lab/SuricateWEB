@@ -98,7 +98,7 @@ export const accountDefaults = () => ({
   userAgent: 'Mozilla/5.0 (compatible; SuricateWeb/1.0; surveillance de site)',
   builtinKeywords: [...DEFAULT_KEYWORDS],
   retention: { screenshots: defaultShotKeep() },
-  // Une mise à jour du CMS en attente depuis plus de N jours déclenche une alerte.
+  // Délai d'alerte (en jours) réservé à l'extension de la version hébergée (src/extension.js). Gardé sous ce nom : les comptes existants l'ont déjà.
   cmsAfterDays: 7,
   // Langue des textes produits pour ce compte : alertes, messages Telegram, rapports, e-mails (voir src/i18n.js).
   language: 'fr',
@@ -326,9 +326,7 @@ export const defaultConfig = () => ({
     content: true, keywords: true, title: true, sizeDrop: true, scripts: true, links: true,
     redirect: true, status: true, tls: true, dns: true, rdap: true, server: true,
   },
-  // Connecteur WordPress / PrestaShop : SuricateWeb interroge le plugin (intervalMin en minutes).
-  // alerts : mises à jour en retard / PHP en fin de support · security : intégrité des fichiers et comptes administrateurs.
-  // codeScan : recherche de code suspect (porte dérobée, code obfusqué) dans le groupe « security » ; désactivable seul (lecture de tous les fichiers PHP du site).
+  // Configuration propre à l'extension de la version hébergée (src/extension.js) : le cœur la garde telle quelle, bornée, sans en connaître le contenu.
   cms: {}, // configuration de l'extension (src/extension.js)
   // Pages supplémentaires du même site (panier, contact, connexion…) : [{ url, label }], 10 au plus.
   pages: [],
@@ -458,17 +456,6 @@ const rowToWatch = (r) =>
     accountId: r.account_id ?? DEFAULT_ACCOUNT_ID,
   };
 
-/** Site dont le widget CMS porte ce jeton, ou null (même principe que la page de statut). */
-export async function getWatchByWidgetToken(token) {
-  if (!/^[A-Za-z0-9_-]{16,64}$/.test(String(token ?? ''))) return null;
-  const rows = await db.all('SELECT * FROM watches WHERE config LIKE ?', [`%${token}%`]);
-  for (const r of rows) {
-    const w = rowToWatch(r);
-    if (w.config.cms.type && w.config.cms.widgetToken === token) return w;
-  }
-  return null;
-}
-
 /** Site dont la page de statut publique porte ce jeton, ou null. Le jeton est validé avant d'entrer dans la requête. */
 export async function getWatchByStatusToken(token) {
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(String(token ?? ''))) return null;
@@ -587,53 +574,8 @@ export async function deleteScreenshotRows(ids) {
 export const setShotState = async (watchId, { nextShot, error = null }) =>
   await db.run('UPDATE watches SET next_shot = ?, shot_error = ? WHERE id = ?', [nextShot, error, watchId]);
 
-/** Écrit uniquement state.cms et l'échéance, sans écraser le reste de l'état (un contrôle peut écrire en parallèle). */
-export async function setCmsReport(id, cms, nextCms) {
-  const row = await db.get('SELECT state FROM watches WHERE id = ?', [id]);
-  if (!row) return null;
-  let state = {};
-  try {
-    state = JSON.parse(row.state || '{}') || {};
-  } catch {
-    state = {};
-  }
-  state.cms = cms;
-  await db.run('UPDATE watches SET state = ?, next_cms = ? WHERE id = ?', [JSON.stringify(state), nextCms, id]);
-  return await getWatch(id);
-}
-
-/** Un relevé du plugin vient d'aboutir : le prochain contrôle part sans attendre, pour que ses alertes ne tardent pas. */
+/** L'extension vient d'obtenir un relevé : le prochain contrôle part sans attendre, pour que ses alertes ne tardent pas. */
 export const wakeWatch = async (id) => db.run('UPDATE watches SET next_run = 0 WHERE id = ? AND enabled = 1 AND next_run > ?', [id, Date.now()]);
-
-// ───────────── Journal d'activité du CMS (src/store/migrations/0004-cms-activity.js) ─────────────
-export const ACTIVITY_KEEP_DAYS = 90;
-const ACTIVITY_COLS = 'event_id AS "id", ts, kind, actor, target, role, ip, ip_hash AS "ipHash", n';
-
-/** Enregistre des événements relevés (idempotent : un événement déjà connu est remplacé, son compteur ayant pu grandir), puis purge ce qui a plus de 90 jours. */
-export async function saveCmsActivity(watchId, events, now = Date.now()) {
-  for (const e of events) {
-    await db.run(
-      'INSERT INTO cms_activity(watch_id, event_id, ts, kind, actor, target, role, ip, ip_hash, n) VALUES(?,?,?,?,?,?,?,?,?,?) '
-      + 'ON CONFLICT(watch_id, event_id) DO UPDATE SET ts = excluded.ts, kind = excluded.kind, actor = excluded.actor, target = excluded.target, role = excluded.role, ip = excluded.ip, ip_hash = excluded.ip_hash, n = excluded.n',
-      [watchId, e.id, e.ts, e.kind, e.actor, e.target, e.role, e.ip, e.ipHash, e.n],
-    );
-  }
-  await db.run('DELETE FROM cms_activity WHERE watch_id = ? AND ts < ?', [watchId, now - ACTIVITY_KEEP_DAYS * DAY_MS]);
-}
-
-/** Heure du dernier événement connu (0 : aucun) : le prochain relevé reprend à cet instant. */
-export const lastCmsActivityTs = async (watchId) => Number((await db.get('SELECT COALESCE(MAX(ts), 0) AS ts FROM cms_activity WHERE watch_id = ?', [watchId])).ts);
-
-/** Événements récents, du plus récent au plus ancien ; `kinds` filtre (liste de types), `since` borne la date. */
-export async function listCmsActivity(watchId, { kinds = null, since = 0, limit = 200 } = {}) {
-  const marks = kinds?.length ? ` AND kind IN (${kinds.map(() => '?').join(',')})` : '';
-  const rows = await db.all(`SELECT ${ACTIVITY_COLS} FROM cms_activity WHERE watch_id = ? AND ts >= ?${marks} ORDER BY ts DESC, event_id DESC LIMIT ?`, [watchId, since, ...(kinds?.length ? kinds : []), limit]);
-  return rows.map((r) => ({ ...r, id: Number(r.id), ts: Number(r.ts), n: Number(r.n) }));
-}
-
-export const purgeCmsActivity = (watchId) => db.run('DELETE FROM cms_activity WHERE watch_id = ?', [watchId]);
-
-export const countCmsActivity = async (watchId) => Number((await db.get('SELECT COUNT(*) AS n FROM cms_activity WHERE watch_id = ?', [watchId])).n);
 
 export const deleteWatch = async (id) => (await db.run('DELETE FROM watches WHERE id = ?', [id])).changes > 0;
 
@@ -759,6 +701,7 @@ export async function saveRun(id, { state, nextRun, code, ms, error }) {
   let next = state;
   try {
     const prev = JSON.parse(cur?.state || '{}');
+    // Un contrôle ne doit pas écraser un relevé plus récent de l'extension (state.cms, écrit en parallèle par elle).
     if (prev?.cms && (prev.cms.checkedAt || 0) > (state?.cms?.checkedAt || 0)) next = { ...state, cms: prev.cms };
   } catch {
     /* l'état en cours d'écriture reste la référence */
@@ -1015,9 +958,6 @@ function dueRows(rows) {
   }
   return out;
 }
-
-/** Sites dont le relevé CMS est dû (next_cms > 0 : 0 veut dire « aucun relevé planifié »), avec leur configuration. */
-export const dueCmsWatches = async (now) => dueRows(await db.all('SELECT id, config FROM watches WHERE enabled = 1 AND next_cms > 0 AND next_cms <= ?', [now]));
 
 /** Sites dont la capture d'écran est due, avec leur configuration. */
 export const dueShotWatches = async (now) => dueRows(await db.all('SELECT id, config FROM watches WHERE enabled = 1 AND next_shot <= ?', [now]));

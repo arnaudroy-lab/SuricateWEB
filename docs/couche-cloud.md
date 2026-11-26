@@ -131,7 +131,7 @@ Le cœur appelle `check` dans trois cas :
 - la capture manuelle répond **402** ; `GET /api/watches/:id/screenshots` et `GET /api/settings` renvoient `allowed: false`, et l'interface explique « non incluses dans votre forfait » au lieu de « navigateur introuvable » ;
 - hors requête (planificateur, alertes), le cœur appelle `limits({ account: { id } })` **avec le seul compte** : ne comptez pas sur `ctx.user` ni sur la requête. Une erreur de `limits` n'arrête pas les captures (journalisée).
 
-Les autres plafonds (rétention, pages par site, connecteur CMS, page de statut) sont à imposer vous-même, soit par `check`, soit dans vos routes, soit en filtrant la configuration reçue (voir §9).
+Les autres plafonds (rétention, pages par site, page de statut) sont à imposer vous-même, soit par `check`, soit dans vos routes, soit en filtrant la configuration reçue (voir §9).
 
 À trancher côté cloud : un site en pause compte-t-il dans le quota ? Le cœur appelle `site:create` pour tout nouveau site et `site:enable` pour toute reprise ; c'est à votre `check` de compter comme le forfait l'exige. Que faire quand un compte dépasse son forfait après une rétrogradation (mettre les sites en trop en pause, ne **jamais** supprimer) est aussi de votre ressort.
 
@@ -194,7 +194,7 @@ Pas de lecteur de boutons Telegram multi-comptes dans le cœur : le sien est li�
 
 - refuse tout ce qui n'est pas http(s), les ports hors liste (80, 443, 8080, 8443 par défaut) et toute adresse privée ou réservée, écrite telle quelle ou renvoyée par le DNS ;
 - vérifie l'adresse **dans le `lookup` de la connexion** : pas de fenêtre pour un « DNS rebinding » ;
-- s'applique à chaque étape d'une redirection, au relevé CMS, au certificat TLS et aux captures ;
+- s'applique à chaque étape d'une redirection, aux relevés d'une extension, au certificat TLS et aux captures ;
 - refuse dès la saisie (400) une adresse interdite, avec la raison.
 
 **Limite à connaître** : Chrome résout les adresses lui-même. Ses requêtes sont interceptées et vérifiées une à une, mais l'adresse jugée peut différer de celle de la connexion. Pour une garantie complète, faites tourner Chrome dans un conteneur ou un réseau **sans accès à l'interne** (§7).
@@ -221,6 +221,24 @@ Sans ces clés (cœur auto-hébergé), rien n'est affiché.
 - La réponse à « / » dépend de la session : le cœur pose `Vary: Cookie` dès que `home` est défini. Le gestionnaire doit répondre avec `Cache-Control: no-cache` (ou `private`).
 - `/index.html` reste l'application, avec ou sans session : c'est l'adresse à donner à un bouton « Se connecter » de la page d'accueil.
 - Le service worker de l'application met « / » en cache : hors ligne, un visiteur qui a déjà ouvert l'application peut retrouver celle-ci à la place de la page. Sans conséquence (l'application ne fonctionne pas hors ligne).
+
+### 3.11 `extension` — une fonction métier ajoutée au cœur
+
+Une couche hébergée peut ajouter une fonction que le cœur ne connaît pas (par exemple un connecteur qui interroge un service distant sur chaque site). Le cœur n'en embarque aucune : `createApp({ extension })` reçoit un objet de **crochets**, tous facultatifs, définis et documentés en tête de `src/extension.js`.
+
+| Crochet | Appelé… |
+|---|---|
+| `normalizeConfig(raw, { mode })` | à chaque lecture ou écriture de la configuration d'un site : normalise `config.cms` (clé opaque, bornée) |
+| `configureWatch(cfg)` | à l'enregistrement d'un site : complète (jetons…) ou refuse (`HttpError`) |
+| `ownsIncident(key)`, `incidents({ cfg, state, settings, now, domainOnly })` | à chaque contrôle : incidents propres à l'extension (acquittables par « Tout est normal ») |
+| `listFields(w)`, `detailFields(w)` | pour ajouter des champs à la liste et à la fiche d'un site |
+| `watchCreated(w)`, `updatePatch({ prev, cfg, data })` | après création, et pour une modification (ex. planifier le prochain relevé : colonne `next_cms`) |
+| `reportData`, `reportCard`, `reportSummary` | pour le rapport mensuel d'un site |
+| `routes`, `publicHandlers` | routes supplémentaires, et adresses publiques hors `/api` (GET) |
+| `start(app)`, `stop(app)` | tâches de fond, avec `startBackground()` et `stop()` |
+| `ui: { script }` | module d'interface : annoncé par `GET /api/capabilities` (`uiModule`), chargé par l'application, qui lui fournit ses utilitaires (voir `public/app.js`, `EXT`) |
+
+L'état propre à l'extension se range dans `state.cms` du site (conservé par le cœur d'un contrôle à l'autre), son échéance dans `watches.next_cms`, et ses données volumineuses dans ses propres tables ; la table `cms_activity` (migration 0004) est réservée à l'extension. `test/extension.test.js` montre chaque crochet avec une extension d'exemple.
 
 ## 4. Les données : ctx.data
 
@@ -249,7 +267,7 @@ Les fonctions qui prennent l'identifiant d'un site **déjà obtenu par `ctx.data
 | Niveau | Contenu | Stockage | Accès |
 |---|---|---|---|
 | Installation | secret de session, adresse publique (`baseUrl`), rétention des contrôles et des versions | ligne `app` | `getInstanceSettings()` (synchrone), `saveInstanceSettings(patch)` |
-| Compte | Telegram, mots-clés, User-Agent, intervalle par défaut, seuil des mises à jour CMS, conservation des captures | ligne `account:<id>` | `accountSettings(id)`, `saveAccountSettings(id, patch)` |
+| Compte | Telegram, mots-clés, User-Agent, intervalle par défaut, délai d'alerte de l'extension, conservation des captures | ligne `account:<id>` | `accountSettings(id)`, `saveAccountSettings(id, patch)` |
 
 `settingsFor(compteId)` donne la **vue fusionnée** (installation + compte) que reçoivent contrôles, messages et relevés. `getSettings()` (synchrone) est la vue du **compte implicite 1** : à ne pas utiliser dans du code multi-comptes. Un compte sans ligne a les valeurs par défaut (`accountDefaults()`). Les réglages d'un compte sont relus au bout de 30 s : une modification faite par un autre processus est vue dans ce délai.
 
@@ -330,12 +348,12 @@ Pour vos propres routes : ajoutez-les à une matrice d'isolation équivalente, a
 | Planificateur **sans réservation** | deux processus contrôleraient les mêmes sites | `pickDue` qui réserve (`UPDATE … SET next_run = … RETURNING`), ou un seul processus de planification |
 | Bus d'événements **en mémoire** (`src/events.js`) | un worker séparé n'alimente pas le temps réel des processus web ; chaque connexion SSE ajoute un écouteur (plafond réglé à 100) | `LISTEN/NOTIFY` PostgreSQL ou Redis, et revoir le plafond |
 | Captures sur **disque local** (`DATA_DIR/screenshots`) | pas de multi-machines ; pas de quota disque | stockage objet derrière une interface, quota par forfait |
-| Quotas : seul l'intervalle est plafonné (`limits`) | captures, rétention, pages par site, connecteur CMS, page de statut : à imposer vous-même | étendre `limits()` si le besoin se confirme |
+| Quotas : seul l'intervalle est plafonné (`limits`) | captures, rétention, pages par site, page de statut : à imposer vous-même | étendre `limits()` si le besoin se confirme |
 | `GET /api/watches` **non paginé**, avec une requête par site pour la courbe (`sparklines`) | lent pour un compte de centaines de sites | pagination, requête unique |
 | Barres de disponibilité : 90 × 2 requêtes par site affiché | idem | agréger côté SQL |
 | Page de statut : jeton cherché par `LIKE '%jeton%'` sur `watches.config` | parcours complet de la table | colonne `status_token` indexée |
 | Lecteur Telegram du cœur : un bot, le compte 1 | inutilisable en multi-comptes | webhook côté cloud (§3.6) |
-| Relevé CMS et contrôles : mêmes `fetch` globaux sans limitation par compte | un compte peut saturer le serveur | `pickDue` équitable, `concurrency` |
+| Relevés d'une extension et contrôles : mêmes `fetch` globaux sans limitation par compte | un compte peut saturer le serveur | `pickDue` équitable, `concurrency` |
 | Disponibilité mesurée depuis **un seul point** | une panne réseau du serveur ressemble à une panne du site | sondes multi-régions (hors périmètre actuel) |
 
 ## 10. Ce qu'une couche hébergée doit construire
@@ -381,19 +399,18 @@ Le cœur produit ses textes en français (langue par défaut) ou en anglais, sel
 | `group:read` | `GET /api/groups` |
 | `group:write` | `POST /api/groups` · `PUT /api/groups/:id` · `DELETE /api/groups/:id` · `PUT /api/layout` |
 | `maintenance:write` | `POST /api/watches/:id/maintenance` · `DELETE /api/maintenance/:id` |
-| `plugin:download` | `GET /api/plugins/:file` |
 | `report:read` | `GET /api/watches/:id/report` · `GET /api/groups/:id/report` |
 | `settings:read` | `GET /api/settings` |
 | `settings:write` | `PUT /api/settings` · `POST /api/telegram/test` · `POST /api/telegram/detect` |
-| `site:ack` | `POST /api/watches/:id/ack` · `POST /api/watches/:id/cms/admins/accept` |
-| `site:check` | `POST /api/watches/:id/check` · `POST /api/watches/:id/screenshot` · `POST /api/watches/:id/cms` |
+| `site:ack` | `POST /api/watches/:id/ack` |
+| `site:check` | `POST /api/watches/:id/check` · `POST /api/watches/:id/screenshot` |
 | `site:create` | `POST /api/watches` · `POST /api/test-url` |
 | `site:delete` | `DELETE /api/watches/:id` |
-| `site:read` | `GET /api/watches` · `GET /api/watches/:id` · `GET /api/watches/:id/uptime` · `GET /api/watches/:id/series` · `GET /api/watches/:id/domain` · `GET /api/watches/:id/history` · `GET /api/snapshots/:id/diff` · `GET /api/snapshots/:id/text` · `GET /api/watches/:id/screenshots` · `GET /api/watches/:id/activity` (journal d’activité : IP tronquées, 90 jours) · `GET /api/screenshots/:id/image` · `GET /api/events` |
-| `site:update` | `PUT /api/watches/:id` · `POST /api/watches/:id/toggle` · `POST /api/watches/:id/cms/harden` (durcissement : modifie le site surveillé via son plugin) |
+| `site:read` | `GET /api/watches` · `GET /api/watches/:id` · `GET /api/watches/:id/uptime` · `GET /api/watches/:id/series` · `GET /api/watches/:id/domain` · `GET /api/watches/:id/history` · `GET /api/snapshots/:id/diff` · `GET /api/snapshots/:id/text` · `GET /api/watches/:id/screenshots` · `GET /api/screenshots/:id/image` · `GET /api/events` |
+| `site:update` | `PUT /api/watches/:id` · `POST /api/watches/:id/toggle` |
 | *(aucune : connexion seule)* | `GET /api/me` |
 
-44 routes. `GET /api/auth`, `POST /api/login` et `POST /api/logout` viennent du fournisseur d'authentification par défaut ; le vôtre déclare les siennes.
+43 routes. `GET /api/auth`, `POST /api/login` et `POST /api/logout` viennent du fournisseur d'authentification par défaut ; le vôtre déclare les siennes.
 
 
 ## Annexe B — Événements du flux temps réel
