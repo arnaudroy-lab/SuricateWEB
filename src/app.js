@@ -134,7 +134,7 @@ export function createApp({
   // Contexte commun à tous les gestionnaires (ctx.app) : ce que les routes ont besoin de savoir de l'application.
   const app = {
     info, root, env, trustProxy, clientIp, auth, entitlements,
-    capabilities: { mode: 'self-hosted', multiUser: false, billing: false, ...capabilities },
+    capabilities: { mode: 'self-hosted', multiUser: false, billing: false, ...capabilities, ...(extension?.ui?.script ? { uiModule: extension.ui.script } : {}) },
     /** Appelle un hook s'il existe ; son échec est journalisé, jamais propagé. */
     async emit(name, ...args) {
       try {

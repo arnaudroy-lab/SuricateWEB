@@ -138,25 +138,6 @@ const fmtDur = (ms) => {
 const hue = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
-/** Même construction que src/cms.js : origine du site + chemin fixe du plugin. */
-function cmsUrl(siteUrl, type, path) {
-  try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(siteUrl) ? siteUrl : `https://${siteUrl}`);
-    const prefix = String(path || '').trim().replace(/^\/+|\/+$/g, '');
-    const base = prefix ? `/${prefix}` : '';
-    if (type === 'prestashop') {
-      u.pathname = `${base}/modules/suricateweb/status.php`.replace(/\/{2,}/g, '/');
-      u.search = '';
-    } else {
-      u.pathname = `${base}/`.replace(/\/{2,}/g, '/');
-      u.search = 'rest_route=/suricateweb/v1/status';
-    }
-    u.hash = '';
-    return u.href;
-  } catch {
-    return '';
-  }
-}
 
 const randomToken = () => {
   const b = new Uint8Array(32);
@@ -164,12 +145,6 @@ const randomToken = () => {
   return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-const cmsPending = (report) => {
-  if (!report) return 0;
-  return [report.core, ...(report.extensions || []), ...(report.themes || [])].filter((i) => i?.available).length;
-};
-/** Anomalies de sécurité en cours : fichiers modifiés ou ajoutés, PHP dans les médias, nouveaux administrateurs. */
-const cmsSecurityCount = (w) => w.incidents.filter((i) => !i.acked && /^cms_(integrity|admins)/.test(i.key)).reduce((n, i) => n + (i.count || 1), 0);
 
 const STATUS = {
   ok: { label: tr('Intact'), cls: 'ok' },
@@ -463,25 +438,32 @@ function empty(icon, title, text, ...actions) {
   return h('div', { class: 'card empty' }, h('div', { class: 'art' }, ic(icon)), h('h2', {}, title), text ? h('p', {}, text) : null, ...actions);
 }
 
-/**
- * Boutons de téléchargement des plugins WordPress / PrestaShop, avec la version livrée. Un repère orange compte les sites dont le plugin installé
- * est plus ancien que celui-ci (le lien CMS du site le dit : cmsLink.outdated).
- */
-function pluginButtons(plugins, sites) {
-  return (plugins || []).map((p) => {
-    const kind = p.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
-    const old = sites.filter((w) => w.cmsLink?.type === p.type && w.cmsLink.outdated).length;
-    const title = tr('Télécharger le plugin {kind} {version}, à installer sur le site puis à relier avec son jeton.', { kind, version: p.version })
-      + (old ? ' ' + plural(old, tr('site a un plugin plus ancien à mettre à jour.'), tr('sites ont un plugin plus ancien à mettre à jour.')) : '');
-    return h('a', { class: 'btn plugin-dl', href: `/api/plugins/${p.file}`, download: '', title, 'aria-label': title },
-      ic('download'), tr('Plugin {kind}', { kind }), h('span', { class: 'ver' }, `v${p.version}`), old ? h('span', { class: 'pill warn' }, `${old} ↑`) : null);
-  });
+
+// ───────────── Extension d'interface ─────────────
+// Une fonction métier fournie par le serveur (voir src/extension.js) apporte son propre module d'interface : `capabilities.uiModule` en donne l'adresse.
+// Le module exporte `default(UI)` et renvoie ses crochets (tous facultatifs) :
+//   ownsIncident(key)            vrai pour les incidents de l'extension (acquittables, ne comptent pas dans « à vérifier »)
+//   chips(w) / dots(w)           indicateurs d'un site dans la liste (colonne large / pastille compacte)
+//   pageActions(list)            boutons de l'en-tête de la liste des sites (promesse possible)
+//   tabs(w)                      onglets d'un site : [{ id, label, icon, badge?: { text, tone }, render() }]
+//   formSection(c, { urlInput }) section du formulaire d'un site : { node, read() → configuration }
+//   settingsSection(s)           section des réglages : { node, read() → champs ajoutés à l'enregistrement }
+let EXT = {};
+async function loadExtension() {
+  const url = S.caps?.uiModule;
+  if (!url || !/^\/[^/]/.test(url)) return; // chemin du même site seulement
+  try {
+    const mod = await import(url);
+    EXT = mod.default({ add, h, ic, rel, dt, dday, fmtDur, api, toast, guard, route, empty, details, randomToken, tr, plural, isOne, lang, locale, S }) ?? {};
+  } catch (e) {
+    console.error('[extension]', e);
+    EXT = {};
+  }
 }
 
 // ───────────── Tableau de bord ─────────────
 async function viewDashboard() {
-  // Plugins à télécharger : si le droit manque (invité) ou si la route est absente, la liste s'affiche sans les boutons.
-  const [list, settings, groups, plugins] = await Promise.all([api('/watches'), S.settings ? Promise.resolve(S.settings) : api('/settings'), api('/groups'), api('/plugins').then((r) => r.plugins).catch(() => [])]);
+  const [list, settings, groups] = await Promise.all([api('/watches'), S.settings ? Promise.resolve(S.settings) : api('/settings'), api('/groups')]);
   S.watches = list;
   S.groups = groups;
   S.settings = settings;
@@ -500,7 +482,7 @@ async function viewDashboard() {
   root.append(h('div', { class: 'page-head' },
     h('div', {}, h('h1', {}, tr('Mes sites')), h('p', {}, tr('Contrôle permanent de l\'intégrité de vos sites, sans avoir à les ouvrir.'))),
     h('div', { class: 'actions' },
-      ...pluginButtons(plugins, list),
+      ...(await EXT.pageActions?.(list) ?? []),
       h('button', { class: 'btn', onclick: guard(async (e) => {
         const b = e.currentTarget;
         b.disabled = true;
@@ -858,79 +840,10 @@ function signalChips(w) {
     const loud = w.incidents.some((i) => i.key === 'rdap_expiring' && !i.acked);
     chips.push(h('span', { class: `chip ${loud ? (d < 7 ? 'crit' : d < 30 ? 'warn' : '') : ''}`, title: tr('Nom de domaine valide jusqu\'au {dday}', { dday: dday(w.domainExpires) }) }, ic('globe'), d < 0 ? tr('expiré') : `${d} ${DAYU}`));
   }
-  const cms = cmsChip(w);
-  if (cms) chips.push(cms);
-  chips.push(...stackChips(w));
+  chips.push(...(EXT.chips?.(w) ?? [])); // indicateurs de l'extension
   return chips;
 }
 
-/** opts.handle : poignée de glisser-déposer · opts.chip : affiche le groupe (vue « Par état », où les groupes ne sont pas visibles). */
-/**
- * Lien avec le CMS d'un site (WordPress « WP » / PrestaShop « PS »), pour la liste : le site est-il relié à son plugin, avec la version du plugin installé.
- * Vert : connecté et à jour · orange : connecté mais le plugin installé est plus ancien que celui qu'on propose · rouge : le dernier relevé a échoué ·
- * gris : aucun relevé pour le moment. null pour un site sans CMS.
- */
-function cmsState(w) {
-  const l = w.cmsLink;
-  if (!l) return null;
-  const kind = l.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
-  const abbr = l.type === 'prestashop' ? 'PS' : 'WP';
-  const v = l.version ? `v${l.version}` : '';
-  if (l.status === 'pending') {
-    return { tone: '', text: `${abbr} · ${tr('en attente')}`, title: tr('{kind} : aucun relevé du plugin pour le moment. Installez le plugin, collez le jeton dans ses réglages, puis actualisez.', { kind }) };
-  }
-  if (l.status === 'error') {
-    return { tone: 'crit', text: `${abbr}${v ? ` ${v}` : ''} · ${tr('non joint')}`, title: tr('{kind} : le dernier relevé a échoué ({error}).', { kind, error: l.error || tr('erreur inconnue') }) + (v ? ' ' + tr('Dernière version du plugin connue : {version}.', { version: l.version }) : '') };
-  }
-  if (l.outdated) {
-    return { tone: 'warn', text: `${abbr} ${v} ↑`, title: tr('{kind} connecté. Plugin {version} installé, {latest} disponible : mettez-le à jour (fiche du site › Mises à jour).', { kind, version: l.version, latest: l.latest }) };
-  }
-  return { tone: 'ok', text: v ? `${abbr} ${v}` : abbr, title: v ? tr('{kind} connecté · plugin {version} (à jour) · relevé {rel}', { kind, version: l.version, rel: rel(l.checkedAt) }) : tr('{kind} connecté · version du plugin inconnue (plugin très ancien : mettez-le à jour) · relevé {rel}', { kind, rel: rel(l.checkedAt) }) };
-}
-/** Pastille complète, dans la colonne des indicateurs (certificat, domaine). */
-function cmsChip(w) {
-  const st = cmsState(w);
-  return st ? h('span', { class: `chip cms-chip ${st.tone}`, title: st.title, 'aria-label': st.title }, ic('layers'), st.text) : null;
-}
-/**
- * Versions relevées sur le site par le plugin : PHP (orange quand son support de sécurité touche à sa fin, rouge quand il est terminé) et le CMS
- * (orange quand une version plus récente existe). Rien sans relevé : le relevé du plugin est la seule source.
- */
-function stackChips(w) {
-  const k = w.stack;
-  if (!k) return [];
-  const chips = [];
-  if (k.php) {
-    const tone = k.phpStatus === 'ended' ? 'crit' : k.phpStatus === 'ending' ? 'warn' : '';
-    const title = k.phpStatus === 'ended' ? tr('PHP {version} : le support de sécurité est terminé, passez à une version maintenue.', { version: k.php })
-      : k.phpStatus === 'ending' ? tr('PHP {version} : la fin du support de sécurité approche.', { version: k.php })
-        : tr('PHP {version}, relevé sur le site par le plugin.', { version: k.php });
-    chips.push(h('span', { class: `chip php-chip ${tone}`, title, 'aria-label': title }, ic('server'), `PHP ${k.php}`));
-  }
-  if (k.cms) {
-    const kind = w.mode !== 'domain' && w.cmsLink?.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
-    const title = k.cmsAvailable ? tr('{kind} {version} : la version {available} est disponible.', { kind, version: k.cms, available: k.cmsAvailable })
-      : tr('{kind} {version}, relevé sur le site par le plugin.', { kind, version: k.cms });
-    chips.push(h('span', { class: `chip cms-version-chip ${k.cmsAvailable ? 'warn' : ''}`, title, 'aria-label': title }, ic('layers'), `${kind} ${k.cms}${k.cmsAvailable ? ' ↑' : ''}`));
-  }
-  const n = k.pending?.total || 0;
-  if (n) {
-    const shop = w.cmsLink?.type === 'prestashop';
-    const parts = [
-      k.pending.core ? tr('le CMS') : null,
-      k.pending.extensions ? plural(k.pending.extensions, shop ? tr('module') : tr('extension'), shop ? tr('modules') : tr('extensions')) : null,
-      k.pending.themes ? plural(k.pending.themes, tr('thème'), tr('thèmes')) : null,
-    ].filter(Boolean).join(', ');
-    const title = tr('Mises à jour en attente sur le site : {parts} (fiche du site › Mises à jour).', { parts });
-    chips.push(h('span', { class: 'chip warn updates-chip', title, 'aria-label': title }, ic('refresh'), plural(n, tr('mise à jour'), tr('mises à jour'))));
-  }
-  return chips;
-}
-/** Version compacte (icône seule) dans la ligne du nom : seulement là où la colonne des indicateurs est masquée (écran étroit). */
-function cmsDot(w) {
-  const st = cmsState(w);
-  return st ? h('span', { class: `pill ${st.tone || 'mute'} icon-only cms-narrow`, title: st.title, 'aria-label': st.title }, ic('layers')) : null;
-}
 
 function siteRow(w, opts = {}) {
   const visible = w.incidents.filter((i) => !i.acked);
@@ -947,7 +860,7 @@ function siteRow(w, opts = {}) {
   // « e.target === e.currentTarget » : Entrée sur un bouton de la ligne (poignée, vérifier) ne doit pas ouvrir le site.
   return h('div', { class: `site ${w.enabled ? '' : 'dim'}`, 'data-id': w.id, tabindex: 0, role: 'link', onclick: () => (location.hash = `#/sites/${w.id}`), onkeydown: (e) => e.target === e.currentTarget && e.key === 'Enter' && (location.hash = `#/sites/${w.id}`) },
     h('div', { class: 'id' }, opts.handle ? handleBtn('site', w.id, tr('Déplacer « {name} »', { name: w.name })) : null, w.shot ? h('img', { class: 'thumb', src: shotUrl(w.shot, true), loading: 'lazy', alt: '', title: tr('Capture {rel}', { rel: rel(w.shot.ts) }) }) : avatar(w.name), h('div', { class: 't' },
-      h('div', { class: 'name' }, h('span', { class: 'n' }, w.name), statusPill(w), cmsDot(w), w.maintenanceUntil ? maintPill(w, true) : null, grp ? h('span', { class: 'gchip', style: `--gc:${grp.color}`, title: tr('Groupe « {name} »', { name: grp.name }) }, h('span', { class: 'grp-dot' }), grp.name) : null),
+      h('div', { class: 'name' }, h('span', { class: 'n' }, w.name), statusPill(w), EXT.dots?.(w) ?? null, w.maintenanceUntil ? maintPill(w, true) : null, grp ? h('span', { class: 'gchip', style: `--gc:${grp.color}`, title: tr('Groupe « {name} »', { name: grp.name }) }, h('span', { class: 'grp-dot' }), grp.name) : null),
       top ? h('div', { class: `issue ${top.severity === 'warning' ? 'warn' : ''}` }, top.title) : h('div', { class: 'url' }, host(w.url) + (w.tags.length ? '  ·  ' + w.tags.join(', ') : '')))),
     h('div', { class: 'sigs' }, ...signalChips(w)),
     h('div', { class: 'spark-col' }, w.mode === 'domain' ? h('div', { class: 'spark-empty' }, tr('DNS + registre')) : spark(w.spark)),
@@ -1000,7 +913,7 @@ async function viewDetail(id, tab, tok, openSnap) {
   const root = h('div', {});
   const unread = w.unread.critical + w.unread.warning + w.unread.info;
   // L'échéance déjà lue ne compte plus dans « non lues », mais elle laisse le site « À vérifier » tant qu'elle n'est pas acquittée.
-  const domainOpen = w.incidents.some((i) => (i.key === 'rdap_expiring' || /^(cms_|php_eol)/.test(i.key)) && !i.acked);
+  const domainOpen = w.incidents.some((i) => (i.key === 'rdap_expiring' || EXT.ownsIncident?.(i.key)) && !i.acked);
 
   const doCheck = guard(async (e) => {
     const b = e.currentTarget;
@@ -1046,32 +959,25 @@ async function viewDetail(id, tab, tok, openSnap) {
       }) }, active ? tr('Terminer maintenant') : tr('Annuler'))));
   }
 
-  for (const i of w.incidents.filter((x) => !(x.acked && /^(cms_|php_eol)/.test(x.key)))) { // l'échéance du domaine acquittée reste visible ici
+  for (const i of w.incidents.filter((x) => !(x.acked && EXT.ownsIncident?.(x.key)))) { // l'échéance du domaine acquittée reste visible ici
     root.append(h('div', { class: `incident ${i.severity === 'warning' ? 'warn' : ''}` }, ic('alert'),
       h('div', {}, h('b', {}, i.title), i.detail ? h('p', {}, i.detail) : null, h('small', {}, tr('Depuis {rel}', { rel: rel(i.since) })))));
   }
 
   const domainOnly = w.mode === 'domain';
-  const cmsOn = !domainOnly && (w.config?.cms?.type === 'wordpress' || w.config?.cms?.type === 'prestashop');
-  const cmsN = cmsPending(w.cms);
-  const cmsSecN = cmsSecurityCount(w);
+  const extTabs = EXT.tabs?.(w) ?? []; // onglets de l'extension : { id, label, icon, badge?: { text, tone }, render() }
   const tabs = domainOnly
     ? [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['domaine', tr('Domaine & DNS'), 'globe']]
-    : [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['captures', tr('Captures'), 'image'], ['disponibilite', tr('Disponibilité'), 'clock'], ['modifications', tr('Modifications'), 'file'], ['domaine', tr('Domaine & DNS'), 'globe'], ...(cmsOn ? [['mises-a-jour', tr('Mises à jour'), 'layers'], ['securite', tr('Sécurité'), 'shield'], ['sante', tr('Santé'), 'server'], ...(w.config?.cms?.type === 'wordpress' ? [['activite', tr('Activité'), 'eye']] : [])] : [])];
+    : [['apercu', tr('Aperçu'), 'activity'], ['alertes', tr('Alertes'), 'bell'], ['captures', tr('Captures'), 'image'], ['disponibilite', tr('Disponibilité'), 'clock'], ['modifications', tr('Modifications'), 'file'], ['domaine', tr('Domaine & DNS'), 'globe'], ...extTabs.map((t) => [t.id, t.label, t.icon])];
   root.append(tabStrip(...tabs.map(([k, l, icn]) => h('a', { href: `#/sites/${id}/${k}`, class: tab === k ? 'on' : '', role: 'tab' }, ic(icn), l,
     k === 'alertes' && unread ? h('span', { class: 'badge' }, unread) : null,
-    k === 'mises-a-jour' && cmsN ? h('span', { class: 'badge warn' }, cmsN) : null,
-    k === 'securite' && cmsSecN ? h('span', { class: 'badge' }, cmsSecN) : null,
-    k === 'sante' && cmsHealthN(w) ? h('span', { class: 'badge warn' }, cmsHealthN(w)) : null))));
+    ((b) => (b ? h('span', { class: `badge ${b.tone || ''}`.trim() }, b.text) : null))(extTabs.find((t) => t.id === k)?.badge)))));
 
   if (tab === 'modifications' && !domainOnly) root.append(await changesTab(w, openSnap));
   else if (tab === 'captures' && !domainOnly) root.append(await capturesTab(w));
   else if (tab === 'disponibilite' && !domainOnly) root.append(await uptimeTab(w));
   else if (tab === 'domaine') root.append(await domainTab(w));
-  else if (tab === 'mises-a-jour' && cmsOn) root.append(updatesTab(w));
-  else if (tab === 'securite' && cmsOn) root.append(securityTab(w));
-  else if (tab === 'sante' && cmsOn) root.append(healthTab(w));
-  else if (tab === 'activite' && cmsOn && w.config.cms.type === 'wordpress') root.append(await activityTab(w));
+  else if (extTabs.some((t) => t.id === tab)) root.append(await extTabs.find((t) => t.id === tab).render());
   else if (tab === 'alertes') {
     const alerts = await api(`/alerts?watch=${id}&limit=100`);
     root.append(alerts.length ? alertList(alerts, false) : empty('bell', tr('Aucune alerte'), tr('Ce site n\'a déclenché aucune alerte pour le moment.')));
@@ -1439,380 +1345,28 @@ async function uptimeTab(w) {
 
 // ───────────── Mises à jour (WordPress / PrestaShop) ─────────────
 
-function cmsRowState(item) {
-  if (item?.available) return h('span', { class: 'pill warn' }, tr('Mise à jour'));
-  if (item?.known === false) return h('span', { class: 'pill mute' }, tr('Inconnue'));
-  return h('span', { class: 'pill ok' }, tr('À jour'));
-}
 
-function cmsTable(title, items) {
-  const rows = [...(items || [])].sort((a, b) => (b.available ? 1 : 0) - (a.available ? 1 : 0) || String(a.name).localeCompare(String(b.name), locale));
-  return h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' }, h('h2', {}, title), h('span', { class: 'muted' }, rows.length ? plural(rows.filter((r) => r.available).length, tr('mise à jour'), tr('mises à jour')) : tr('aucun élément'))),
-    rows.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
-      h('thead', {}, h('tr', {}, h('th', {}, tr('Nom')), h('th', {}, tr('Version actuelle')), h('th', {}, tr('Version disponible')), h('th', {}, tr('État')))),
-      h('tbody', {}, ...rows.map((r) => h('tr', {},
-        h('td', {}, r.name, r.active === false ? h('span', { class: 'muted' }, tr(' · inactif')) : null),
-        h('td', { class: 'mono' }, r.current || '—'),
-        h('td', { class: 'mono' }, r.available || '—', r.available && r.since ? h('span', { class: 'muted', title: tr('Depuis le premier relevé de SuricateWeb qui voit cette version disponible') }, ` · ${fmtDur(Date.now() - r.since)}`) : null),
-        h('td', {}, cmsRowState(r)),
-      )))))
-      : h('div', { class: 'empty', style: { padding: '22px' } }, h('p', { style: { margin: 0 } }, tr('Rien à afficher pour le moment.'))));
-}
 
-const dUtc = (ts) => new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
-function phpPill(sup) {
-  if (sup?.status === 'ended') return h('span', { class: 'pill crit', style: { marginLeft: '10px' }, title: tr('Plus aucun correctif de sécurité n\'est publié pour cette branche de PHP.') }, sup.endsAt ? tr('PHP {branch} non maintenu depuis le {dUtc}', { branch: sup.branch, dUtc: dUtc(sup.endsAt) }) : tr('PHP {branch} non maintenu', { branch: sup.branch }));
-  if (sup?.status === 'ending') return h('span', { class: 'pill warn', style: { marginLeft: '10px' } }, tr('Fin du support de PHP {branch} le {dUtc}', { branch: sup.branch, dUtc: dUtc(sup.endsAt) }));
-  return null;
-}
 
-/** Carte « Widget du tableau de bord » : le site est-il relié, sinon pourquoi, et l'adresse à coller à la main dans le plugin en dernier recours. */
-function widgetLinkCard(w, report) {
-  const l = report.widgetLink;
-  const url = report.widgetUrl;
-  const reasons = {
-    plugin_old: tr('Le plugin installé est trop ancien pour afficher le widget : mettez-le à jour (version 1.4 ou plus).'),
-    no_base_url: tr('Aucune adresse publique de SuricateWeb : renseignez « Adresse de SuricateWeb » dans les Réglages, puis actualisez.'),
-    refused: tr('Le site a refusé la liaison (HTTP {status}). SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l\'adresse ci-dessous dans le plugin.', { status: l?.status ?? '?' }),
-    error: tr('Liaison impossible : {error}. SuricateWeb réessaie dans 30 minutes ; vous pouvez aussi coller l\'adresse ci-dessous dans le plugin.', { error: l?.error || '?' }),
-  };
-  const state = !l ? { cls: 'mute', text: tr('Pas encore tenté : cliquez sur « Actualiser » (la liaison se fait à chaque relevé).') }
-    : l.ok ? { cls: 'ok', text: tr('Relié : l\'administration du site affiche son état.') }
-      : { cls: 'warn', text: reasons[l.reason] || reasons.error };
-  const copy = url ? h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' } },
-    h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, url),
-    h('button', { class: 'btn sm', type: 'button', onclick: guard(async () => { await navigator.clipboard.writeText(url); toast(tr('Adresse copiée')); }) }, tr('Copier'))) : null;
-  return h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' }, h('h2', {}, tr('Widget du tableau de bord')), h('span', { class: `pill ${state.cls}` }, l?.ok ? tr('Relié') : l ? tr('Non relié') : tr('En attente'))),
-    h('div', { class: 'card-pad' }, h('p', { style: { margin: 0 } }, state.text), copy));
-}
 
-function updatesTab(w) {
-  const report = w.cms;
-  const kind = w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
-  const extLabel = w.config.cms.type === 'prestashop' ? tr('Modules') : tr('Extensions');
-  const refresh = h('button', { class: 'btn', onclick: guard(async (e) => {
-    const b = e.currentTarget;
-    b.disabled = true;
-    const r = await api(`/watches/${w.id}/cms`, { method: 'POST' });
-    toast(r.ok ? tr('Versions mises à jour') : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
-    route();
-  }) }, ic('refresh'), tr('Actualiser'));
-  const root = h('div', {});
-  if (!report?.checkedAt || (!report.ok && !report.core)) {
-    root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-      h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, kind), h('span', { class: 'muted' }, tr('en attente du premier relevé'))), refresh),
-      h('div', { class: 'card-pad' },
-        report?.error ? h('div', { class: 'callout', style: { marginBottom: '14px' } }, ic('alert'), h('div', {}, report.error)) : null,
-        h('p', {}, tr('Installez le plugin sur le site, collez le jeton ci-dessous dans ses réglages, puis actualisez.')),
-        h('p', { class: 'mono', style: { wordBreak: 'break-all' } }, w.config.cms.token || '—'),
-        h('p', {}, h('a', { class: 'btn', href: `/api/plugins/${w.config.cms.type}.zip` }, ic('download'), tr(' Télécharger le plugin {kind}', { kind }))),
-      )));
-    return root;
-  }
-  root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' },
-      h('div', {}, h('h2', {}, `${kind} ${report.cmsVersion || report.core?.current || ''}`.trim()), h('span', { class: 'muted' }, tr('PHP {v1} · relevé {rel}', { v1: report.php || '—', rel: rel(report.checkedAt) })), phpPill(report.phpSupport)),
-      refresh),
-    report.error ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, report.error, h('span', { class: 'muted' }, tr(' Le tableau reste celui du dernier relevé réussi.'))))) : null,
-  ));
-  root.append(widgetLinkCard(w, report));
-  root.append(cmsTable(tr('Noyau'), report.core ? [{ name: kind, current: report.core.current, available: report.core.available, known: report.core.known, since: report.core.since, active: true }] : []));
-  root.append(cmsTable(extLabel, report.extensions));
-  root.append(cmsTable(tr('Thèmes'), report.themes));
-  if (report.history?.length) {
-    const KIND = { core: tr('noyau'), ext: w.config.cms.type === 'prestashop' ? tr('module') : tr('extension'), theme: tr('thème') };
-    root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-      h('div', { class: 'card-head' }, h('h2', {}, tr('Mises à jour effectuées')), h('span', { class: 'muted' }, tr('vues par SuricateWeb d’un relevé à l’autre'))),
-      h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
-        h('thead', {}, h('tr', {}, h('th', {}, tr('Date')), h('th', {}, tr('Élément')), h('th', {}, tr('Version')))),
-        h('tbody', {}, ...[...report.history].reverse().slice(0, 15).map((e) => h('tr', {},
-          h('td', {}, dt(e.ts)), h('td', {}, e.name, h('span', { class: 'muted' }, ` · ${KIND[e.kind] || e.kind}`)),
-          h('td', { class: 'mono' }, e.from ? `${e.from} → ${e.to}` : tr('installé : {to}', { to: e.to })))))))));
-  }
-  return root;
-}
 
 
 // ───────────── Santé du site : disque, débogage, tâches planifiées… ─────────────
 
-const HEALTH_PILL = { ok: ['ok', () => tr('Normal')], info: ['mute', () => tr('À améliorer')], warn: ['warn', () => tr('Attention')], crit: ['crit', () => tr('Critique')] };
-/** Nombre de contrôles de santé qui demandent de l'attention (pastille de l'onglet). */
-const cmsHealthN = (w) => (w.config.cms.health === false ? 0 : (w.cms?.health?.checks || []).filter((c) => c.level === 'warn' || c.level === 'crit').length);
 
-function healthTab(w) {
-  const hl = w.cms?.health;
-  const kind = w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress';
-  const refresh = h('button', { class: 'btn', onclick: guard(async (e) => {
-    const b = e.currentTarget;
-    b.disabled = true;
-    const r = await api(`/watches/${w.id}/cms`, { method: 'POST' });
-    toast(r.ok ? tr('Santé du site mise à jour') : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
-    route();
-  }) }, ic('refresh'), tr('Actualiser'));
-  if (w.config.cms.health === false) {
-    return h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', {}, tr('Santé de {kind}', { kind }))),
-      h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Le suivi de la santé est désactivé pour ce site (Modifier › WordPress / PrestaShop).'))));
-  }
-  const checks = hl?.checks || [];
-  return h('div', {},
-    h('div', { class: 'card', style: { marginBottom: '16px' } },
-      h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Santé de {kind}', { kind })), h('span', { class: 'muted' }, hl?.checkedAt ? tr('relevée {rel}', { rel: rel(hl.checkedAt) }) : tr('en attente du premier relevé'))), refresh),
-      hl?.error ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, hl.error, checks.length ? h('span', { class: 'muted' }, tr(' Le tableau reste celui du dernier relevé réussi.')) : null))) : null,
-      checks.length
-        ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('tbody', {}, ...checks.map((c) => h('tr', {},
-          h('td', {}, c.label), h('td', { class: 'mono' }, c.value), h('td', { style: { textAlign: 'right' } }, h('span', { class: `pill ${HEALTH_PILL[c.level][0]}` }, HEALTH_PILL[c.level][1]())))))))
-        : (hl?.error ? null : h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Aucun relevé de santé pour le moment. Mettez le plugin à jour (version 1.5 ou plus) puis actualisez.'))))),
-    w.config.cms.type === 'wordpress' ? hardeningCard(w, hl) : null,
-    h('p', { class: 'hint muted' }, tr('SuricateWeb relève des faits sur le serveur du site et décide lui-même des seuils d\'alerte. Les sauvegardes ne sont pas surveillées : elles dépendent de la solution que vous utilisez.')));
-}
 
-/** Carte « Durcissement » (WordPress) : réglages appliqués par le plugin, un par un ou d'un clic pour les mesures sûres. */
-function hardeningCard(w, hl) {
-  const rows = hl?.hardeningRows;
-  const head = h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Durcissement')), h('span', { class: 'muted' }, tr('réglages appliqués par le plugin, un par un ou d\'un clic'))));
-  if (!rows) {
-    return h('div', { class: 'card', style: { marginBottom: '16px' } }, head, h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } },
-      hl?.checkedAt ? tr('Le plugin installé sur le site ne propose pas encore le durcissement : mettez-le à jour (version 1.6 ou plus), puis actualisez.') : tr('Le durcissement apparaît après le premier relevé de santé.'))));
-  }
-  const apply = async (body, done) => {
-    // Pendant l'envoi, toute la carte est bloquée : l'ordre suivant partirait avant que l'état affiché ne soit à jour.
-    card?.querySelectorAll('input, button').forEach((x) => { x.disabled = true; });
-    const r = await api(`/watches/${w.id}/cms/harden`, { method: 'POST', body });
-    toast(r.ok ? done : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
-    // Réglage appliqué mais état non relu : ce n'est pas un échec de l'activation, on le dit à part.
-    if (r.ok && r.refreshError) toast(tr('Appliqué, mais l\'état du site n\'a pas pu être relu : {error}', { error: r.refreshError }), 'err');
-    route();
-  };
-  const pending = rows.filter((m) => m.safe && !m.effective).length;
-  let card = null;
-  const row = (m) => h('label', { class: 'toggle-row' },
-    h('div', { class: 'tt' }, h('b', {}, m.label, ' ', h('span', { class: `pill ${m.safe ? 'ok' : 'mute'}` }, m.safe ? tr('Recommandé') : tr('Optionnel')), m.native ? [' ', h('span', { class: 'pill mute' }, tr('Déjà actif sur le site'))] : null), h('span', {}, m.desc)),
-    h('span', { class: 'switch' }, h('input', { type: 'checkbox', checked: m.effective, disabled: m.native, onchange: guard(async (e) => {
-      e.target.disabled = true;
-      await apply({ measures: { [m.id]: e.target.checked } }, e.target.checked ? tr('Mesure activée') : tr('Mesure retirée'));
-    }) }), h('i')));
-  card = h('div', { class: 'card', style: { marginBottom: '16px' } }, head,
-    h('div', { class: 'card-pad' },
-      h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' } },
-        h('button', { class: 'btn primary', disabled: !pending, onclick: guard(async (e) => { e.currentTarget.disabled = true; await apply({ preset: 'safe' }, tr('Réglages sûrs appliqués')); }) }, ic('shield'), tr('Appliquer les réglages sûrs')),
-        h('span', { class: 'muted' }, pending ? plural(pending, tr('mesure recommandée à activer'), tr('mesures recommandées à activer')) : tr('Toutes les mesures recommandées sont actives.'))),
-      ...rows.map(row),
-      h('p', { class: 'hint muted', style: { marginBottom: 0 } }, tr('Aucun fichier du site n\'est modifié (ni wp-config.php, ni .htaccess) : chaque mesure est appliquée par le plugin à chaque chargement et se retire en la décochant. Aucune ne bloque un administrateur connecté.'))));
-  return card;
-}
 
 
 // ───────────── Journal d'activité (WordPress) ─────────────
 
-const ACTIVITY_GROUPS_UI = () => [['', tr('Tout')], ['login', tr('Connexions')], ['account', tr('Comptes')], ['extension', tr('Extensions')]];
-const ACTIVITY_TONE = { login_fail: 'warn', user_created: 'warn', role_changed: 'warn', user_deleted: 'warn', plugin_deleted: 'warn' };
 
-async function activityTab(w) {
-  const refresh = h('button', { class: 'btn', onclick: guard(async (e) => {
-    e.currentTarget.disabled = true;
-    const r = await api(`/watches/${w.id}/cms`, { method: 'POST' });
-    toast(r.ok ? tr('Journal mis à jour') : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
-    route();
-  }) }, ic('refresh'), tr('Actualiser'));
-  const first = await api(`/watches/${w.id}/activity`);
-  const st = first.status;
-  const head = h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Journal d\'activité')), h('span', { class: 'muted' }, st?.checkedAt ? tr('relevé {rel}', { rel: rel(st.checkedAt) }) : tr('en attente du premier relevé'))), refresh);
-  const note = h('p', { class: 'hint muted' }, tr('Adresses IP tronquées par le plugin (jamais complètes : IPv4 au /24, IPv6 au /48), conservées {days} jours puis effacées. Un identifiant saisi à la connexion n\'est gardé que s\'il correspond à un compte existant.', { days: first.retentionDays }));
-  if (!first.enabled) {
-    return h('div', {}, h('div', { class: 'card', style: { marginBottom: '16px' } }, head, h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Le journal d\'activité est coupé pour ce site (Modifier › WordPress / PrestaShop). Les événements déjà relevés ont été effacés.')))), note);
-  }
-  const body = h('tbody', {});
-  const draw = (rows) => {
-    body.replaceChildren(...(rows.length ? rows.map((e) => h('tr', {},
-      h('td', { class: 'mono' }, dt(e.ts)),
-      h('td', {}, h('span', { class: `pill ${ACTIVITY_TONE[e.kind] || 'mute'}` }, e.label)),
-      h('td', {}, [e.actor || e.target || '—', e.actor && e.target && e.target !== e.actor ? h('span', { class: 'muted' }, ` → ${e.target}${e.role ? ` (${e.role})` : ''}`) : (e.role ? h('span', { class: 'muted' }, ` (${e.role})`) : null)]),
-      h('td', { class: 'mono muted' }, e.ip || '—'))) : [h('tr', {}, h('td', { colspan: 4, class: 'muted' }, tr('Aucun événement pour le moment.'))) ]));
-  };
-  draw(first.rows);
-  const seg = h('div', { class: 'seg', style: { margin: '12px 16px' } }, ...ACTIVITY_GROUPS_UI().map(([g, label], i) => h('button', { class: i === 0 ? 'on' : '', type: 'button', onclick: guard(async (e) => {
-    seg.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
-    e.currentTarget.classList.add('on');
-    draw((await api(`/watches/${w.id}/activity${g ? `?group=${g}` : ''}`)).rows);
-  }) }, label)));
-  const ins = st?.insights;
-  return h('div', {},
-    h('div', { class: 'card', style: { marginBottom: '16px' } }, head,
-      st?.error ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, st.error))) : null,
-      ins && ins.failed1h ? h('div', { class: 'card-pad', style: { paddingBottom: 0 } }, h('div', { class: 'callout' }, ic('alert'), h('div', {}, plural(ins.failed1h, tr('échec de connexion'), tr('échecs de connexion')), tr(' dans la dernière heure, '), plural(ins.sources1h, tr('source'), tr('sources')), '.'))) : null,
-      seg,
-      h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('thead', {}, h('tr', {}, h('th', {}, tr('Date')), h('th', {}, tr('Événement')), h('th', {}, tr('Compte')), h('th', {}, tr('Source')))), body))),
-    note);
-}
 
 // ───────────── Sécurité du CMS : intégrité des fichiers et comptes administrateurs ─────────────
 
-const pathItems = (list, tag) => list.map((f) => h('li', {}, h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, f), h('span', { class: 'muted' }, ` · ${tag}`)));
 
-function integritySection(title, sec, hint) {
-  const bad = sec.modified.length + sec.added.length;
-  const pill = !sec.known ? h('span', { class: 'pill mute' }, tr('Non vérifiable'))
-    : bad ? h('span', { class: 'pill crit' }, plural(bad, tr('anomalie'), tr('anomalies')))
-      : sec.missing.length ? h('span', { class: 'pill warn' }, plural(sec.missing.length, tr('fichier manquant'), tr('fichiers manquants')))
-        : h('span', { class: 'pill ok' }, tr('Conforme'));
-  return h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' }, h('h2', {}, title), h('span', { class: 'muted' }, sec.known ? tr('{checked} fichiers comparés', { checked: sec.checked }) : ''), pill),
-    bad || sec.missing.length
-      ? h('div', { class: 'card-pad' }, h('ul', { class: 'plain', style: { margin: 0, paddingLeft: '18px' } }, ...pathItems(sec.modified, tr('modifié')), ...pathItems(sec.added, tr('fichier PHP ajouté')), ...pathItems(sec.missing, tr('manquant'))),
-        sec.more ? h('p', { class: 'muted' }, tr('… et {more} autre(s) non listé(s).', { more: sec.more })) : null)
-      : hint ? h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, hint)) : null);
-}
 
-// Libellés des motifs de code suspect (mêmes identifiants que le scanner des plugins ; un test vérifie qu'aucun ne manque).
-const CODE_LABELS = {
-  eval_decode: tr('code décodé puis exécuté (eval + base64, gzinflate…)'),
-  request_exec: tr('exécute ce qu’envoie le visiteur'),
-  request_func: tr('appelle une fonction choisie par le visiteur'),
-  preg_e: tr('preg_replace avec le modificateur /e (exécute du code)'),
-  write_php: tr('écrit du code PHP sur le disque'),
-  create_function: tr('create_function (fonction créée à partir d’un texte)'),
-  eval_var: tr('eval d’une variable'),
-  long_encoded: tr('très longue chaîne encodée'),
-  chr_chain: tr('texte reconstruit caractère par caractère'),
-  js_obfuscated: tr('JavaScript obfusqué'),
-  obfuscated_names: tr('noms de variables illisibles'),
-  goto_chain: tr('enchaînement de goto (code brouillé)'),
-  long_line: tr('ligne démesurée'),
-  cloaking: tr('contenu différent pour les robots de recherche'),
-  auto_prepend: tr('code exécuté avant chaque page (auto_prepend_file)'),
-  handler_media: tr('PHP exécuté dans des images ou des fichiers texte'),
-  htaccess_cloak: tr('réécriture selon le visiteur (robots de recherche)'),
-  vendor_encoder: tr('code chiffré par un éditeur (ionCube, Zend Guard…)'),
-};
 
-/** Carte « Code suspect » de l'onglet Sécurité : fichiers signalés (chemin + motif, jamais le contenu), reconnaissance par fichier, dérive récente. */
-function codeCard(w, kind) {
-  const code = w.cms?.code;
-  const card = h('div', { class: 'card', style: { marginBottom: '16px' } });
-  const head = (...extra) => h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Code suspect')), h('span', { class: 'muted' }, code?.checkedAt ? tr('analysé {rel}{v1}', { rel: rel(code.checkedAt), v1: code.inventory ? ` · ${plural(code.inventory, tr('fichier suivi'), tr('fichiers suivis'))}` : '' }) : tr('en attente de la première analyse'))), ...extra);
-  if (w.config.cms.codeScan === false) {
-    card.append(head(h('span', { class: 'pill mute' }, tr('Désactivé'))), h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('La recherche de code suspect est désactivée pour ce site. Réactivez-la dans « Modifier › WordPress / PrestaShop ».'))));
-    return card;
-  }
-  if (!code) {
-    card.append(head(), h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Aucune analyse pour le moment. Cliquez sur « Actualiser » ; {shopWord} doit être en version 1.3 ou plus.', { shopWord: shopWord(kind) }))));
-    return card;
-  }
-  if (code.enabled === false) {
-    card.append(head(h('span', { class: 'pill mute' }, tr('Coupée sur le site'))), h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('L’analyse est désactivée côté site (en-tête X-Suricate-Code).'))));
-    return card;
-  }
-  const files = code.files || [];
-  const alerting = files.filter((f) => !f.known && f.level !== 'vendor' && (f.level === 'strong' || f.origin === 'change'));
-  const critical = alerting.some((f) => f.level === 'strong' && f.origin === 'change');
-  const status = alerting.length ? h('span', { class: `pill ${critical ? 'crit' : 'warn'}` }, plural(alerting.length, tr('à vérifier'), tr('à vérifier'))) : files.some((f) => !f.known && f.level !== 'vendor') ? h('span', { class: 'pill mute' }, tr('À relire')) : h('span', { class: 'pill ok' }, tr('Rien de suspect'));
-  const body = h('div', { class: 'card-pad' });
-  if (code.error) body.append(h('div', { class: 'callout', style: { marginBottom: '12px' } }, ic('alert'), h('div', {}, code.error, code.files?.length || code.inventory ? h('span', { class: 'muted' }, tr(' Les résultats ci-dessous sont ceux de la dernière analyse réussie.')) : null)));
-  if (code.persistent === false) body.append(h('div', { class: 'callout', style: { marginBottom: '12px' } }, ic('alert'), h('div', {}, tr('{shopWord} ne peut pas enregistrer son inventaire (dossier non inscriptible) : les fichiers modifiés ne peuvent pas être détectés, seuls les motifs connus le sont.', { shopWord: shopWord(kind) }))));
-  if (code.baseline) body.append(h('p', { class: 'muted', style: { margin: '0 0 8px' } }, tr('Première analyse : l’état actuel du site sert de référence. Les fichiers ajoutés ou modifiés ensuite (hors mise à jour d’une extension, d’un thème ou du CMS) seront signalés comme nouveaux.')));
-  if (code.partial) body.append(h('p', { class: 'muted', style: { margin: '0 0 8px' } }, tr('Analyse interrompue (délai) : elle reprend au prochain relevé, là où elle s’est arrêtée.')));
-  const LEVEL = { strong: ['crit', tr('Motif fort')], review: ['warn', tr('À relire')], vendor: ['mute', tr('Chiffré par un éditeur')] };
-  if (files.length) {
-    body.append(h('ul', { class: 'plain', style: { margin: '0 0 8px', padding: 0, listStyle: 'none' } }, ...files.map((f) => h('li', { style: { padding: '8px 0', borderTop: '1px solid var(--line)' } },
-      h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
-        h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, f.path),
-        h('span', { class: `pill ${LEVEL[f.level][0]}` }, LEVEL[f.level][1]),
-        f.level !== 'vendor' ? h('span', { class: 'pill mute' }, f.origin === 'change' ? tr('Nouveau ou modifié') : tr('Déjà présent')) : null,
-        f.known ? h('span', { class: 'pill ok' }, tr('Reconnu')) : null,
-        !f.known && f.level !== 'vendor' && f.hash ? h('button', { class: 'btn', style: { marginLeft: 'auto' }, onclick: guard(async () => { await api(`/watches/${w.id}/cms/code/accept`, { method: 'POST', body: { path: f.path } }); toast(tr('Fichier reconnu')); route(); }) }, ic('check'), tr('Je connais ce fichier')) : null),
-      h('div', { class: 'muted', style: { fontSize: '13px' } }, (f.hits || []).map((id) => CODE_LABELS[id] || id).join(' · ') || tr('motif suspect'))))));
-    if (code.more) body.append(h('p', { class: 'muted' }, tr('… et {more} autre(s) non listé(s).', { more: code.more })));
-  } else if (!code.baseline) {
-    body.append(h('p', { style: { margin: '0 0 8px' } }, tr('Aucun fichier ne présente de motif de porte dérobée ou de code injecté.')));
-  }
-  if (code.drift?.files?.length) {
-    body.append(h('details', { style: { margin: '8px 0' } }, h('summary', {}, tr('{plural} ces {days} derniers jours, sans motif suspect', { plural: plural(code.drift.files.length + (code.drift.more || 0), tr('fichier PHP ajouté ou modifié'), tr('fichiers PHP ajoutés ou modifiés')), days: code.drift.days })),
-      h('ul', { class: 'plain', style: { margin: '6px 0 0', paddingLeft: '18px' } }, ...code.drift.files.map((p) => h('li', { class: 'mono' }, p))),
-      code.drift.more ? h('p', { class: 'muted' }, tr('… et {more} autre(s).', { more: code.drift.more })) : null));
-  }
-  body.append(h('p', { class: 'muted', style: { margin: '8px 0 0' } }, tr('{shopWord} compare les fichiers PHP aux signatures de code injecté (code décodé puis exécuté, commandes envoyées par le visiteur, noms illisibles…) et suit leurs empreintes d’un relevé à l’autre. Seuls le chemin du fichier et le motif reconnu quittent le site : jamais son contenu. Un motif fort est un indice sérieux, pas une preuve : vérifiez le fichier avant d’agir.', { shopWord: shopWord(kind) })));
-  card.append(head(status), body);
-  return card;
-}
-const shopWord = (kind) => (kind === 'PrestaShop' ? tr('Le module') : tr('Le plugin'));
 
-function securityTab(w) {
-  const report = w.cms;
-  const shop = w.config.cms.type === 'prestashop';
-  const kind = shop ? 'PrestaShop' : 'WordPress';
-  const root = h('div', {});
-  const refresh = h('button', { class: 'btn', onclick: guard(async (e) => {
-    e.currentTarget.disabled = true;
-    const r = await api(`/watches/${w.id}/cms`, { method: 'POST' });
-    toast(r.ok ? tr('Contrôles actualisés') : (r.error || tr('Relevé impossible')), r.ok ? 'ok' : 'err');
-    route();
-  }) }, ic('refresh'), tr('Actualiser'));
-  if (w.config.cms.security === false) {
-    root.append(h('div', { class: 'callout' }, ic('info'), h('div', {}, tr('Le contrôle de sécurité est désactivé pour ce site. Réactivez-le dans « Modifier › WordPress / PrestaShop ».'))));
-    return root;
-  }
-  const integ = report?.integrity;
-  const admins = report?.admins;
-  root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, tr('Sécurité de {kind}', { kind })), h('span', { class: 'muted' }, integ?.checkedAt ? tr('intégrité contrôlée {rel}', { rel: rel(integ.checkedAt) }) : tr('en attente du premier contrôle'))), refresh),
-    h('div', { class: 'card-pad' },
-      integ?.error ? h('div', { class: 'callout', style: { marginBottom: '12px' } }, ic('alert'), h('div', {}, integ.error, integ.core ? h('span', { class: 'muted' }, tr(' Les résultats ci-dessous sont ceux du dernier contrôle réussi.')) : null)) : null,
-      h('p', { class: 'muted', style: { margin: 0 } }, shop
-        ? tr('Sous PrestaShop, le module cherche des fichiers PHP là où il ne devrait pas y en avoir (img/, upload/, download/). PrestaShop ne publie pas de sommes de contrôle utilisables pour son cœur ni pour les modules : la couverture est partielle.')
-        : tr('Le plugin compare les fichiers du noyau et des extensions du dépôt officiel aux sommes de contrôle publiées par wordpress.org, et cherche des fichiers PHP dans le dossier des téléversements. Les extensions et thèmes premium ou sur mesure ne sont pas comparables.')),
-      h('p', { class: 'muted', style: { margin: '8px 0 0' } }, tr('Le contrôle s’exécute depuis le site lui-même : un attaquant qui en a pris le contrôle pourrait en fausser le résultat. Il complète une sauvegarde saine et une analyse externe, il ne les remplace pas.')))));
-
-  if (integ?.core) {
-    if (!shop) {
-      root.append(integritySection(tr('Noyau {kind}{v1}', { kind, v1: integ.core.version ? ` ${integ.core.version}` : '' }), integ.core,
-        integ.core.known ? tr('Tous les fichiers du noyau correspondent à la distribution officielle.') : tr('Les sommes de contrôle de cette version n’ont pas pu être récupérées auprès de wordpress.org.')));
-      const rows = [...integ.plugins].sort((a, b) => (b.modified.length + b.added.length) - (a.modified.length + a.added.length) || a.name.localeCompare(b.name, locale));
-      root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-        h('div', { class: 'card-head' }, h('h2', {}, tr('Extensions')), h('span', { class: 'muted' }, tr('{length} vérifiées sur {length2}', { length: integ.plugins.filter((p) => p.known).length, length2: integ.plugins.length }))),
-        rows.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
-          h('thead', {}, h('tr', {}, h('th', {}, tr('Extension')), h('th', {}, tr('Version')), h('th', {}, tr('État')), h('th', {}, tr('Fichiers')))),
-          h('tbody', {}, ...rows.map((p) => {
-            const bad = p.modified.length + p.added.length;
-            return h('tr', {},
-              h('td', {}, p.name), h('td', { class: 'mono' }, p.version || '—'),
-              h('td', {}, !p.known ? h('span', { class: 'pill mute', title: p.skipped ? tr('Contrôle interrompu (délai) : repris au prochain relevé') : tr('Hors du dépôt officiel de wordpress.org, ou version inconnue de celui-ci') }, p.skipped ? tr('Reporté') : tr('Non vérifiable')) : bad ? h('span', { class: 'pill crit' }, plural(bad, tr('anomalie'), tr('anomalies'))) : p.missing.length ? h('span', { class: 'pill warn' }, tr('Fichiers manquants')) : h('span', { class: 'pill ok' }, tr('Conforme'))),
-              h('td', {}, bad || p.missing.length ? h('ul', { class: 'plain', style: { margin: 0, paddingLeft: '16px' } }, ...pathItems(p.modified, tr('modifié')), ...pathItems(p.added, tr('ajouté')), ...pathItems(p.missing, tr('manquant'))) : h('span', { class: 'muted' }, p.known ? tr('{checked} comparés', { checked: p.checked }) : '—')));
-          })))) : h('div', { class: 'empty', style: { padding: '22px' } }, h('p', { style: { margin: 0 } }, tr('Aucune extension à vérifier.')))));
-    }
-    const up = integ.uploads;
-    root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-      h('div', { class: 'card-head' }, h('h2', {}, shop ? tr('Fichiers PHP dans les dossiers de médias') : tr('Fichiers PHP dans uploads')), h('span', { class: 'muted' }, tr('{scanned} fichiers parcourus{v1}', { scanned: up.scanned, v1: shop && integ.dirs?.length ? ` (${integ.dirs.join(', ')})` : '' })),
-        up.php.length ? h('span', { class: 'pill crit' }, plural(up.php.length + up.more, tr('fichier'), tr('fichiers'))) : h('span', { class: 'pill ok' }, tr('Aucun'))),
-      up.php.length ? h('div', { class: 'card-pad' }, h('ul', { class: 'plain', style: { margin: 0, paddingLeft: '18px' } }, ...pathItems(up.php, 'PHP')), up.more ? h('p', { class: 'muted' }, tr('… et {more} autre(s).', { more: up.more })) : null,
-        h('p', { class: 'muted' }, tr('Ces dossiers ne devraient contenir que des images et des fichiers téléversés : un fichier PHP s’y trouve presque toujours à cause d’une intrusion.')))
-        : up.truncated ? h('div', { class: 'card-pad' }, h('p', { class: 'muted', style: { margin: 0 } }, tr('Le parcours a été interrompu (trop de fichiers ou délai) : résultat partiel.'))) : null));
-  } else if (!integ?.error) {
-    root.append(h('div', { class: 'empty', style: { padding: '28px' } }, h('p', {}, tr('Aucun contrôle d’intégrité pour le moment. Cliquez sur « Actualiser » ; le plugin doit être en version 1.1 ou plus.'))));
-  }
-
-  root.append(codeCard(w, kind));
-
-  // Comptes administrateurs
-  const flagged = (admins?.added?.length || 0) + (admins?.extra || 0);
-  root.append(h('div', { class: 'card', style: { marginBottom: '16px' } },
-    h('div', { class: 'card-head' }, h('h2', {}, tr('Comptes administrateurs')), h('span', { class: 'muted' }, admins ? plural(admins.count, tr('compte'), tr('comptes')) : ''),
-      !admins ? h('span', { class: 'pill mute' }, tr('Non relevé')) : flagged ? h('span', { class: 'pill crit' }, plural(flagged, tr('à vérifier'), tr('à vérifier'))) : h('span', { class: 'pill ok' }, tr('Inchangés'))),
-    h('div', { class: 'card-pad' },
-      !admins ? h('p', { class: 'muted', style: { margin: 0 } }, tr('Le plugin n’a pas encore transmis le nombre d’administrateurs. Mettez-le à jour (version 1.1 ou plus) puis actualisez.'))
-        : h('div', {},
-          h('p', { class: 'muted', style: { margin: '0 0 8px' } }, shop
-            ? tr('Le module ne renvoie que le nombre d’administrateurs actifs, sans identité ni mot de passe. SuricateWeb alerte quand ce nombre augmente.')
-            : tr('Le plugin ne renvoie que le nombre d’administrateurs et ceux créés ces {v1} derniers jours (identifiant de connexion et date), sans mot de passe ni e-mail. SuricateWeb alerte à chaque nouveau compte.', { v1: admins.windowDays || 30 })),
-          admins.recent?.length ? h('ul', { class: 'plain', style: { margin: '0 0 8px', paddingLeft: '18px' } }, ...admins.recent.map((u) => {
-            const isNew = admins.added?.some((a) => a.id === u.id);
-            return h('li', {}, h('b', {}, u.login || tr('compte n° {id}', { id: u.id })), u.registered ? h('span', { class: 'muted' }, tr(' · créé le {dday}', { dday: dday(u.registered) })) : null, isNew ? h('span', { class: 'pill crit', style: { marginLeft: '8px' } }, tr('Nouveau')) : null);
-          })) : null,
-          admins.extra ? h('p', {}, h('span', { class: 'pill crit' }, plural(admins.extra, tr('compte de plus'), tr('comptes de plus'))), tr(' sans création récente : un compte existant a peut-être été promu administrateur.')) : null,
-          flagged ? h('button', { class: 'btn', onclick: guard(async () => { await api(`/watches/${w.id}/cms/admins/accept`, { method: 'POST' }); toast(tr('Comptes enregistrés comme référence')); route(); }) }, ic('check'), tr('Je connais ces comptes')) : null))));
-  return root;
-}
 
 // ───────────── Domaine & DNS ─────────────
 const CHK_ICON = { ok: 'checkCircle', warn: 'alert', bad: 'alert', na: 'info' };
@@ -1936,7 +1490,7 @@ async function viewAlerts() {
   const root = h('div', {});
   const unread = alerts.filter((a) => !a.read).length;
   root.append(h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, tr('Alertes')), h('p', {}, tr('Tout ce que SuricateWeb a détecté, du plus récent au plus ancien.'))),
-    h('div', { class: 'actions' }, h('button', { class: 'btn', disabled: !list.some((w) => w.unread.critical + w.unread.warning + w.unread.info || w.incidents.some((i) => (i.key === 'rdap_expiring' || /^(cms_|php_eol)/.test(i.key)) && !i.acked)), onclick: guard(async () => { await api('/alerts/read', { method: 'POST', body: { all: true } }); toast(tr('Toutes les alertes sont marquées comme lues')); route(); }) }, ic('check'), tr('Tout marquer comme lu')))));
+    h('div', { class: 'actions' }, h('button', { class: 'btn', disabled: !list.some((w) => w.unread.critical + w.unread.warning + w.unread.info || w.incidents.some((i) => (i.key === 'rdap_expiring' || EXT.ownsIncident?.(i.key)) && !i.acked)), onclick: guard(async () => { await api('/alerts/read', { method: 'POST', body: { all: true } }); toast(tr('Toutes les alertes sont marquées comme lues')); route(); }) }, ic('check'), tr('Tout marquer comme lu')))));
   root.append(h('div', { class: 'toolbar' }, h('div', { class: 'seg' }, ...[['', tr('Toutes')], ['critical', tr('Critiques')], ['warning', tr('Attention')], ['info', tr('Infos')], ['recovery', tr('Rétablis')]].map(([k, l]) =>
     h('button', { class: S.alertSev === k ? 'on' : '', onclick: () => { S.alertSev = k; route(); } }, l)))));
   void unread;
@@ -2037,15 +1591,6 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     headers: h('textarea', { class: 'input mono', placeholder: tr('Authorization: Basic …\nCookie: preview=1'), value: Object.entries(c.headers).map(([k, v]) => `${k}: ${v}`).join('\n') }),
     notify: h('input', { type: 'checkbox', checked: c.notify }),
     minSev: h('select', { class: 'input', value: c.minSeverity }, h('option', { value: '' }, tr('Réglage général')), h('option', { value: 'info' }, tr('Tout (infos incluses)')), h('option', { value: 'warning' }, tr('Attention et critique')), h('option', { value: 'critical' }, tr('Critique uniquement'))),
-    cmsType: h('select', { class: 'input', value: (c.cms?.type === 'wordpress' || c.cms?.type === 'prestashop') ? c.cms.type : '' }, h('option', { value: '' }, tr('Aucun')), h('option', { value: 'wordpress' }, 'WordPress'), h('option', { value: 'prestashop' }, 'PrestaShop')),
-    cmsToken: h('input', { class: 'input mono', value: c.cms?.token || '', autocomplete: 'off', spellcheck: false }),
-    cmsPath: h('input', { class: 'input mono', placeholder: tr('racine du site'), value: c.cms?.path || '', autocomplete: 'off', spellcheck: false }),
-    cmsAlerts: h('input', { type: 'checkbox', checked: c.cms?.alerts !== false }),
-    cmsEvery: h('select', { class: 'input', value: String(c.cms?.intervalMin || 720) }, ...[[60, tr('Toutes les heures')], [360, tr('Toutes les 6 heures')], [720, tr('Toutes les 12 heures')], [1440, tr('Toutes les 24 heures')], [10080, tr('Tous les 7 jours')]].map(([v, l]) => h('option', { value: String(v) }, l))),
-    cmsSecurity: h('input', { type: 'checkbox', checked: c.cms?.security !== false }),
-    cmsCode: h('input', { type: 'checkbox', checked: c.cms?.codeScan !== false }),
-    cmsHealth: h('input', { type: 'checkbox', checked: c.cms?.health !== false }),
-    cmsActivity: h('input', { type: 'checkbox', checked: c.cms?.activity !== false }),
     pages: h('textarea', { class: 'input mono', rows: 4, placeholder: tr('/panier | Panier\n/contact\n/mon-compte | Connexion'), value: (c.pages || []).map((p) => (p.label ? `${p.url} | ${p.label}` : p.url)).join('\n') }),
     statusOn: h('input', { type: 'checkbox', checked: !!c.statusPage?.enabled }),
     statusTitle: h('input', { class: 'input', placeholder: tr('Nom affiché sur la page (par défaut : le nom du site)'), maxlength: 80, value: c.statusPage?.title || '' }),
@@ -2064,6 +1609,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
   const toggle = (input, title, desc) => h('label', { class: 'toggle-row' }, h('div', { class: 'tt' }, h('b', {}, title), desc ? h('span', {}, desc) : null), h('span', { class: 'switch' }, input, h('i')));
   // Les groupes « contenu » et « disponibilité » n'ont pas de sens pour un domaine seul : masqués dans ce mode.
   const siteOnly = (el) => (el.setAttribute('data-site-only', ''), el);
+  const extForm = EXT.formSection?.(c, { urlInput: f.url });
   const groups = CHECK_DEFS.map(([g, items], i) => {
     const el = h('div', { class: 'check-group' }, h('h4', {}, g),
       ...items.map(([k, t, d]) => {
@@ -2096,38 +1642,6 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     if (r.ok && !f.name.value && r.title) f.name.placeholder = r.title.slice(0, 40);
   }) }, tr('Tester'));
 
-  const cmsEndpointEl = h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, '');
-  const cmsBox = h('div', {});
-  const syncCms = () => {
-    const on = f.cmsType.value === 'wordpress' || f.cmsType.value === 'prestashop';
-    cmsBox.hidden = !on;
-    if (on && !f.cmsToken.value) f.cmsToken.value = randomToken();
-    const kind = f.cmsType.value === 'prestashop' ? 'PrestaShop' : 'WordPress';
-    cmsEndpointEl.textContent = on ? cmsUrl(f.url.value, f.cmsType.value, f.cmsPath.value) : '';
-    cmsBox.querySelector('[data-cms-kind]')?.replaceChildren(document.createTextNode(kind));
-  };
-  cmsBox.append(
-    h('div', { class: 'field' }, h('label', {}, tr('Jeton')), h('div', { class: 'input-group' }, f.cmsToken,
-      h('button', { class: 'btn', type: 'button', onclick: () => { f.cmsToken.value = randomToken(); toast(tr('Nouveau jeton — enregistrez, puis collez-le dans le plugin')); } }, tr('Générer')),
-      h('button', { class: 'btn', type: 'button', onclick: guard(async () => { await navigator.clipboard.writeText(f.cmsToken.value); toast(tr('Jeton copié')); }) }, tr('Copier'))),
-      h('span', { class: 'hint' }, tr('À coller dans le plugin. Sans ce jeton, le plugin ne répond pas.'))),
-    h('div', { class: 'row' },
-      h('div', { class: 'field' }, h('label', {}, tr('Dossier')), f.cmsPath, h('span', { class: 'hint' }, tr('Seulement si le CMS n’est pas à la racine du domaine (ex. blog).'))),
-      h('div', { class: 'field' }, h('label', {}, tr('Fréquence du relevé')), f.cmsEvery)),
-    h('div', { class: 'field' }, h('label', {}, tr('Adresse interrogée')), cmsEndpointEl),
-    toggle(f.cmsAlerts, tr('Alerter si des mises à jour tardent ou si PHP n’est plus maintenu'), tr('Alerte Telegram quand une mise à jour reste en attente plus longtemps que le délai réglé dans Réglages, ou quand la version de PHP ne reçoit plus de correctifs de sécurité. À couper si vous ne maîtrisez pas ces versions (hébergement mutualisé, site client).')),
-    toggle(f.cmsSecurity, tr('Surveiller l’intégrité des fichiers et les comptes administrateurs'), tr('Alerte Telegram si un fichier du noyau ou d’une extension du dépôt officiel ne correspond plus aux sommes de contrôle de wordpress.org, si un fichier PHP apparaît dans le dossier des téléversements, ou si un nouvel administrateur est créé. Sous PrestaShop, seuls les dossiers d’images et de téléversements sont contrôlés. Nécessite la version 1.1 du plugin.')),
-    toggle(f.cmsActivity, tr('Tenir le journal d\'activité (WordPress)'), tr('Le plugin consigne les connexions réussies et échouées, les comptes créés ou modifiés, les extensions installées, activées ou supprimées. Adresses IP tronquées (jamais complètes), 90 jours, effacé quand vous décochez. SuricateWeb alerte sur une attaque par mots de passe, et surtout quand l\'une réussit. Nécessite la version 1.7 du plugin.')),
-    toggle(f.cmsHealth, tr('Suivre la santé du site (disque, débogage, tâches planifiées…)'), tr('Le plugin relève des faits sur le serveur : espace disque, mode débogage, tâches planifiées en retard, site masqué des moteurs de recherche, HTTPS, mémoire PHP. SuricateWeb alerte quand l\'un d\'eux devient un risque. Les sauvegardes ne sont pas surveillées. Nécessite la version 1.5 du plugin.')),
-    toggle(f.cmsCode, tr('Rechercher le code suspect (portes dérobées, code obfusqué)'), tr('Le plugin analyse les fichiers PHP du site (thèmes, extensions, modules, configuration du serveur) et signale les motifs typiques d’une intrusion, ainsi que les fichiers ajoutés ou modifiés hors mise à jour. Seuls le chemin et le nom du motif sont transmis, jamais le contenu. Nécessite la version 1.3 du plugin ; sans effet si la surveillance de sécurité est coupée.')),
-    h('p', {}, tr('Téléchargez le plugin '), h('span', { 'data-cms-kind': '' }, ''), tr(', installez-le, activez-le, puis collez le jeton.'),
-      h('span', {}, ' '),
-      h('a', { href: '/api/plugins/wordpress.zip' }, 'WordPress'), ' · ', h('a', { href: '/api/plugins/prestashop.zip' }, 'PrestaShop')),
-  );
-  f.cmsType.addEventListener('change', syncCms);
-  f.cmsPath.addEventListener('input', syncCms);
-  f.url.addEventListener('input', syncCms);
-  syncCms();
 
   const statusUrl = () => `${(S.settings?.baseUrl || location.origin).replace(/\/+$/, '')}/status/${statusToken}`;
   const statusLink = h('span', { class: 'mono', style: { wordBreak: 'break-all' } }, '');
@@ -2145,10 +1659,8 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
     h('div', { class: 'row' }, h('div', { class: 'field' }, h('label', {}, tr('Nom')), f.name), h('div', { class: 'field' }, h('label', {}, tr('Fréquence de contrôle')), f.interval)),
     h('div', { class: 'field' }, h('label', {}, tr('Groupe')), f.group, h('span', { class: 'hint' }, tr('Pour classer vos sites dans la liste (par client, par projet…). Vous pouvez aussi les glisser-déposer.'))),
     h('div', { class: 'field' }, h('label', {}, tr('Étiquettes')), f.tags, h('span', { class: 'hint' }, tr('Séparées par des virgules — pratique pour regrouper par client.'))),
-    siteOnly(details(tr('WordPress / PrestaShop'), [
-      h('div', { class: 'field' }, h('label', {}, 'CMS'), f.cmsType, h('span', { class: 'hint' }, tr('SuricateWeb interroge un plugin installé sur le site pour lire la version de PHP et les mises à jour. Le plugin n’envoie rien de lui-même.'))),
-      cmsBox,
-    ], !!(c.cms?.type))),
+    // Section de l'extension (voir EXT : public/ext-cms.js pour le connecteur WordPress / PrestaShop).
+    extForm ? siteOnly(extForm.node) : null,
     siteOnly(details(tr('Pages supplémentaires'), [
       h('div', { class: 'field' }, h('label', {}, tr('Autres pages à surveiller')), f.pages,
         h('span', { class: 'hint' }, tr('Une par ligne : un chemin (/panier) ou une adresse du même site, puis « | » et un nom facultatif. 10 pages au plus. Panier, paiement, connexion et contact sont les cibles favorites des pirates : SuricateWeb y vérifie la disponibilité, les textes suspects, les nouveaux scripts, iframes et formulaires détournés. Ces pages ne comptent pas dans la disponibilité du site.'))),
@@ -2219,7 +1731,7 @@ function openSiteForm(w, presetUrl = '', presetGroup = null) {
           selector: f.selector.value, excludeSelector: f.exclude.value, ignoreRegex: list(f.ignore), images: f.images.checked,
           forbidden: list(f.forbidden), required: list(f.required), userAgent: f.ua.value, timeoutS: Number(f.timeout.value), failThreshold: Number(f.fails.value),
           minChangePct: Number(f.minPct.value), allowedHosts: list(f.allowed, /[,\n]/), headers, notify: f.notify.checked, minSeverity: f.minSev.value,
-          cms: mode === 'domain' ? { type: '' } : { type: f.cmsType.value, token: f.cmsToken.value, path: f.cmsPath.value, intervalMin: Number(f.cmsEvery.value), alerts: f.cmsAlerts.checked, security: f.cmsSecurity.checked, codeScan: f.cmsCode.checked, health: f.cmsHealth.checked, activity: f.cmsActivity.checked },
+          cms: mode === 'domain' ? {} : (extForm?.read() ?? {}),
           pages: mode === 'domain' ? [] : list(f.pages),
           statusPage: { enabled: mode !== 'domain' && f.statusOn.checked, token: statusToken, title: f.statusTitle.value },
         },
@@ -2261,6 +1773,7 @@ async function viewSettings() {
   const mailMore = localHref(S.caps?.emailAlerts?.moreUrl);
   let mail = null;
   if (mailUrl) { try { const r = await fetch(mailUrl); if (r.ok) mail = await r.json(); } catch { /* section masquée */ } }
+  const extSettings = EXT.settingsSection?.(s);
   const f = {
     token: h('input', { class: 'input mono', placeholder: t.tokenSet ? tr('{token}  (déjà enregistré)', { token: t.tokenMasked }) : '123456789:AAF…', autocomplete: 'off', spellcheck: false }),
     chat: h('input', { class: 'input mono', placeholder: tr('ex. 123456789 ou -1001234567890'), value: t.chatId }),
@@ -2279,7 +1792,6 @@ async function viewSettings() {
     interval: h('select', { class: 'input', value: String(everyChoices(INTERVALS, s.defaultInterval).value) }, ...everyChoices(INTERVALS, s.defaultInterval).options.map(([v, l]) => h('option', { value: String(v) }, l))),
     ua: h('input', { class: 'input', value: s.userAgent }),
     keepAll: h('select', { class: 'input', value: String(s.retention.screenshots) }, ...keepOptions(s.retention.screenshots).map((v) => h('option', { value: String(v) }, tr('{v1} captures', { v1: v })))),
-    cmsDays: h('select', { class: 'input', value: String(s.cmsAfterDays) }, ...[...new Set([1, 3, 7, 14, 30, s.cmsAfterDays])].sort((a, b) => a - b).map((v) => h('option', { value: String(v) }, plural(v, tr('jour'), tr('jours')) + (v === 7 ? tr(' (par défaut)') : '')))),
     kw: h('textarea', { class: 'input mono', style: { minHeight: '190px' }, value: s.builtinKeywords.join('\n') }),
   };
   const toggle = (input, title, desc) => h('label', { class: 'toggle-row' }, h('div', { class: 'tt' }, h('b', {}, title), h('span', {}, desc)), h('span', { class: 'switch' }, input, h('i')));
@@ -2324,7 +1836,7 @@ async function viewSettings() {
     S.settings = await api('/settings', { method: 'PUT', body: {
       slack: { webhookUrl: f.slackUrl.value.trim(), enabled: f.slackOn.checked, sendRecovery: f.slackRecovery.checked, includeDiff: f.slackDiff.checked, minSeverity: f.slackSev.value },
       telegram: { token: f.token.value.trim(), chatId: f.chat.value.trim(), enabled: f.enabled.checked, sendRecovery: f.recovery.checked, includeDiff: f.diff.checked, sendScreenshot: f.photo.checked, buttons: f.buttons.checked, minSeverity: f.minSev.value },
-      baseUrl: f.base.value, defaultInterval: Number(f.interval.value), retention: { screenshots: Number(f.keepAll.value) }, cmsAfterDays: Number(f.cmsDays.value), userAgent: f.ua.value, builtinKeywords: f.kw.value.split('\n'),
+      baseUrl: f.base.value, defaultInterval: Number(f.interval.value), retention: { screenshots: Number(f.keepAll.value) }, ...(extSettings?.read() ?? {}), userAgent: f.ua.value, builtinKeywords: f.kw.value.split('\n'),
     } });
     await saveMail();
     toast(tr('Réglages enregistrés'));
@@ -2381,8 +1893,7 @@ async function viewSettings() {
       h('section', { class: 'card card-pad' },
         h('h2', { style: { marginBottom: '14px' } }, tr('Détection')),
         h('div', { class: 'row' }, h('div', { class: 'field' }, h('label', {}, tr('Fréquence par défaut')), f.interval), h('div', { class: 'field' }, h('label', {}, tr('User-Agent par défaut')), f.ua)),
-        h('div', { class: 'field' }, h('label', {}, tr('Mises à jour WordPress / PrestaShop : alerter après')), f.cmsDays,
-          h('span', { class: 'hint' }, tr('Une mise à jour du CMS, d’une extension ou d’un thème qui reste en attente plus longtemps que ce délai déclenche une alerte (le noyau devient critique au bout de 30 jours). Peut se couper site par site.'))),
+        extSettings?.node ?? null,
         h('div', { class: 'field' }, h('label', {}, tr('Captures d\'écran conservées par site (par défaut)')), f.keepAll,
           h('span', { class: 'hint' }, tr('Au-delà, les plus anciennes sont supprimées. Chaque site peut avoir sa propre limite (Modifier › Capture d\'écran) ; les captures manuelles et d\'alerte ont leur quota, jusqu\'à 100. Espace utilisé aujourd\'hui : {count} captures, {fmtBytes}.', { count: s.screenshots.usage.count, fmtBytes: fmtBytes(s.screenshots.usage.bytes) }))),
         h('div', { class: 'toggle-row', style: { borderTop: 0, paddingTop: 0, marginBottom: '14px' } }, h('div', { class: 'tt' }, h('b', {}, tr('Navigateur pour les captures d\'écran')),
@@ -2598,6 +2109,7 @@ async function boot() {
   // Navigateur sans choix de langue : celle du compte s'impose (une seule fois : le choix est ensuite retenu).
   if (!hasChoice && S.settings?.language && S.settings.language !== lang) { setLang(S.settings.language, { remember: false }); return; }
   S.caps = await fetch('/api/capabilities').then((r) => r.json()).catch(() => ({}));
+  await loadExtension();
   mountShell();
   if (!eventsOn) { eventsOn = true; connectEvents(); }
   route();

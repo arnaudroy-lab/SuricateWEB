@@ -16,10 +16,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const listJs = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listJs(new URL(`${e.name}/`, dir)) : e.name.endsWith('.js') ? [new URL(e.name, dir)] : []));
 
-/** Textes de l'interface (public/app.js et layout.js). */
+/** Textes de l'interface (public/app.js, layout.js et le module de l'extension ext-cms.js). */
 export function clientKeys() {
   const keys = new Set();
-  for (const f of ['app.js', 'layout.js']) for (const k of sourceKeys(readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8'))) keys.add(k);
+  for (const f of ['app.js', 'layout.js', 'ext-cms.js']) for (const k of sourceKeys(readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8'))) keys.add(k);
   return keys;
 }
 
