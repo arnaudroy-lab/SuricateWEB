@@ -5,12 +5,12 @@ import { getExtensions } from '../extensions.js';
 import { randomBytes } from 'node:crypto';
 import { settingsFor, statusTokenInUse, getWatch, updateWatch, normalizeConfig, defaultConfig, DEFAULT_KEYWORDS, uptimeBetween, DAY_MS } from '../db.js';
 import { isRunning } from '../scheduler.js';
-import { cmsConfigError, cmsLinkOf, cmsStackOf } from '../cms.js';
 import { resolvePage } from '../pages.js';
 import { engine, browserLabel } from '../screenshot.js';
 import { parseHtml, selectAll } from '../html.js';
 import { clamp, SEV } from '../util.js';
 import { retranslate } from '../i18n.js';
+import { getExtension, hook } from '../extension.js';
 import { maskWebhook } from '../slack.js';
 import { REGEX_MAX_COUNT, REGEX_MAX_LENGTH } from '../safe-regex.js';
 
@@ -38,8 +38,6 @@ export function assertUrlAllowed(url) {
 }
 
 export function validateConfig(cfg, siteUrl) {
-  const cmsErr = cmsConfigError(cfg.cms);
-  if (cmsErr) throw new HttpError(400, cmsErr);
   for (const p of cfg.pages) {
     if (!resolvePage(siteUrl, p)) throw new HttpError(400, `Page invalide ou extérieure au site : ${p.url}`);
   }
@@ -90,7 +88,7 @@ export function domainExpiryAcked(w, ctx) {
 
 /** Incidents du CMS (mises à jour, PHP, sécurité) : acquittables, leurs données et alertes restent. */
 
-export const isCmsIncident = (key) => key.startsWith('cms_') || key === 'php_eol';
+export const isCmsIncident = (key) => !!getExtension()?.ownsIncident?.(key); // incidents de l'extension : acquittables (voir src/extension.js)
 
 /** Acquitté tant que l'incident n'est ni plus grave ni plus gros (plus de fichiers ou de comptes) qu'au moment du clic. */
 
@@ -141,10 +139,8 @@ export async function summarize(w, ctx) {
     uptime30: domainOnly ? null : (await uptimeBetween(w, now - 30 * DAY_MS, now, now)).uptime,
     tlsExpires: w.state.tls?.expires || null, domainExpires: w.state.rdap?.expires || null,
     maintenanceUntil: ctx.maint?.get(w.id)?.end ?? null,
-    // Lien avec le CMS (WordPress / PrestaShop) : connecté ou non, version du plugin installé, mise à jour du plugin disponible ; null sans CMS.
-    // Versions de PHP et du CMS relevées par le plugin (liste des sites) ; null sans CMS ou sans relevé.
-    stack: cmsStackOf(w),
-    cmsLink: (() => { const l = cmsLinkOf(w); return l ? { ...l, error: l.error ? retranslate(l.error) : null } : null; })(),
+    // Champs de l'extension (voir src/extension.js).
+    ...hook('listFields', {}, w),
   };
 }
 
@@ -191,8 +187,8 @@ export async function watchInput(ctx, body, existing) {
   const s = await settingsFor(ctx.account.id);
   const limits = await ctx.limits();
   const cfg = normalizeConfig({ ...(existing?.config || defaultConfig()), ...(body.config || {}), checks: { ...(existing?.config.checks || {}), ...(body.config?.checks || {}) } });
-  if (cfg.cms.type && !cfg.cms.token) cfg.cms.token = randomBytes(32).toString('base64url');
-  if (cfg.cms.type && !cfg.cms.widgetToken) cfg.cms.widgetToken = randomBytes(18).toString('base64url');
+  // Extension : valide et complète sa configuration (jetons…), ou refuse (HttpError) — voir src/extension.js.
+  hook('configureWatch', undefined, cfg, { ctx, existing });
   const url = body.url !== undefined ? normalizeUrl(body.url) : existing.url;
   assertUrlAllowed(url);
   validateConfig(cfg, url);

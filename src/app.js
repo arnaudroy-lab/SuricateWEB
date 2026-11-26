@@ -61,12 +61,12 @@ import { createEnvAuth } from './auth-env.js';
 import { rememberDomainAck } from './routes/shared.js';
 import { createStaticHandler } from './routes/static.js';
 import { createStatusPageHandler } from './routes/status-page.js';
-import { createWidgetHandler } from './routes/widget.js';
+import { setExtension, getExtension } from './extension.js';
+import { createCmsExtension } from './cms-extension.js';
 import registerMeta from './routes/meta.js';
 import registerWatches from './routes/watches.js';
 import registerMonitoring from './routes/monitoring.js';
 import registerScreenshots from './routes/screenshots.js';
-import registerCms from './routes/cms.js';
 import registerReports from './routes/reports.js';
 import registerGroups from './routes/groups.js';
 import registerAlerts from './routes/alerts.js';
@@ -96,6 +96,7 @@ export function createApp({
   notifier,
   scheduler,
   netGuard,
+  extension = createCmsExtension(), // crochets d'une fonction métier (src/extension.js) ; null : aucune
   telegram = null,
   capabilities = {},
   home = null,
@@ -128,6 +129,7 @@ export function createApp({
   // Garde réseau : un objet createNetGuard(), des options pour en créer une, ou l'environnement ; sinon on ne touche à rien.
   const guard = netGuard?.fetch ? netGuard : netGuard ? createNetGuard(netGuard) : netGuardFromEnv(env);
   configureExtensions({ notifier, scheduler, entitlements, ...(guard ? { netGuard: guard } : {}) });
+  setExtension(extension);
 
   // Contexte commun à tous les gestionnaires (ctx.app) : ce que les routes ont besoin de savoir de l'application.
   const app = {
@@ -155,22 +157,27 @@ export function createApp({
   const api = { route, app, HttpError, HANDLED, send, sendHtml };
 
   auth.register(api); // d'abord : connexion, déconnexion, état (GET /api/auth)
-  for (const register of [registerMeta, registerWatches, registerMonitoring, registerScreenshots, registerCms, registerReports, registerGroups, registerAlerts, registerSettings, registerData, registerEvents]) register(api);
+  for (const register of [registerMeta, registerWatches, registerMonitoring, registerScreenshots, registerReports, registerGroups, registerAlerts, registerSettings, registerData, registerEvents]) register(api);
+  for (const register of extension?.routes ?? []) register(api); // routes de l'extension
   for (const register of extraRoutes) register(api);
 
   // ───────────── Serveur ─────────────
 
   const serveStatic = createStaticHandler(join(root, 'public'));
   const serveStatusPage = createStatusPageHandler({ clientIp });
-  const serveWidget = createWidgetHandler({ clientIp });
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     try {
       const status = req.method === 'GET' && /^\/status\/([A-Za-z0-9_-]{1,80})\/?$/.exec(url.pathname);
       if (status) return await serveStatusPage(req, res, status[1], url.searchParams);
-      const widget = req.method === 'GET' && /^\/widget\/([A-Za-z0-9_-]{16,64})\.json$/.exec(url.pathname);
-      if (widget) return await serveWidget(req, res, widget[1]);
+      // Adresses publiques de l'extension, hors /api (ex. le widget d'un site) : GET seulement.
+      if (req.method === 'GET') {
+        for (const h of getExtension()?.publicHandlers ?? []) {
+          const match = h.pattern.exec(url.pathname);
+          if (match) return await h.handle(req, res, match, { clientIp });
+        }
+      }
       if (home && (url.pathname === '/' || homePaths.includes(url.pathname)) && (req.method === 'GET' || req.method === 'HEAD')) {
         // À cette adresse, la réponse dépend de la session : visiteur → page d'accueil, compte connecté → application. `vary: cookie`
         // empêche un cache intermédiaire (CDN, proxy) de resservir l'une à la place de l'autre.
@@ -269,12 +276,14 @@ export function createApp({
           })
           : startTelegramPoller({ settings: () => { const s = getSettings(); return { ...s.telegram, language: s.language }; }, onRead: markRead });
       }
+      extension?.start?.(handle);
       return app.emit('onStart', handle);
     },
 
     /** Arrête le serveur et les tâches de fond. N'arrête pas la base : c'est au point d'entrée de le faire. */
     async stop() {
       poller?.stop();
+      extension?.stop?.(handle);
       if (schedulerTimer) clearInterval(schedulerTimer);
       stopShotPurge?.();
       // Le flux temps réel (SSE) garde des connexions ouvertes : sans les fermer, server.close() n'aboutirait jamais.

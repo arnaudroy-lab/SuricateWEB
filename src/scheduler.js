@@ -1,8 +1,7 @@
-import { dueCmsWatches, dueShotWatches } from './db.js';
+import { dueShotWatches } from './db.js';
 import { getExtensions } from './extensions.js';
 import { runCheck } from './checker.js';
 import { captureWatch, isCapturing, engine } from './screenshot.js';
-import { pollCms } from './cms.js';
 import { bus } from './events.js';
 
 const running = new Set();
@@ -58,14 +57,6 @@ export function startScheduler() {
     try {
       for (const id of await getExtensions().scheduler.pickDue(Date.now(), 100)) {
         if (!running.has(id)) enqueue(id);
-      }
-      // Relevés CMS : fréquence propre (souvent 12 h), deux à la fois pour ne pas ouvrir toutes les boutiques d'un coup.
-      let cmsSlots = 2;
-      for (const { id, config: cfg } of await dueCmsWatches(Date.now())) {
-        if (cmsSlots <= 0) break;
-        if (cfg.mode === 'domain' || (cfg.cms.type !== 'wordpress' && cfg.cms.type !== 'prestashop')) continue;
-        cmsSlots--;
-        pollCms(id).catch((e) => console.error(`[cms ${id}]`, e));
       }
       // Captures d'écran : planifiées à part, selon leur propre fréquence (la file interne limite la charge de Chrome).
       if (!engine.available()) return;

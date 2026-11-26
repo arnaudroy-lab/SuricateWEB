@@ -8,6 +8,7 @@ import { openStore, getExtraMigrations, getSecretCodec } from './store/registry.
 import { migrate } from './store/migrate.js';
 import { MIGRATIONS } from './store/migrations/index.js';
 import { REGEX_MAX_COUNT } from './safe-regex.js';
+import { getExtension } from './extension.js';
 
 export const DATA_DIR = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 mkdirSync(DATA_DIR, { recursive: true });
@@ -328,7 +329,7 @@ export const defaultConfig = () => ({
   // Connecteur WordPress / PrestaShop : SuricateWeb interroge le plugin (intervalMin en minutes).
   // alerts : mises à jour en retard / PHP en fin de support · security : intégrité des fichiers et comptes administrateurs.
   // codeScan : recherche de code suspect (porte dérobée, code obfusqué) dans le groupe « security » ; désactivable seul (lecture de tous les fichiers PHP du site).
-  cms: { type: '', token: '', path: '', intervalMin: 720, alerts: true, security: true, codeScan: true, health: true, activity: true },
+  cms: {}, // configuration de l'extension (src/extension.js)
   // Pages supplémentaires du même site (panier, contact, connexion…) : [{ url, label }], 10 au plus.
   pages: [],
   // Page de statut publique en lecture seule, à l'adresse /status/<jeton>.
@@ -359,6 +360,13 @@ function pageList(v) {
  * longueur, découpage du corps, cookies de la chaîne de redirections) et permettraient d'atteindre un autre site hébergé sur la même IP.
  */
 export const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'transfer-encoding', 'connection', 'upgrade', 'te', 'trailer', 'keep-alive', 'proxy-authorization', 'proxy-connection', 'expect', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'forwarded']);
+
+/** Configuration d'extension sans extension installée : objet simple de taille bornée, copié ; sinon vide. */
+const passthroughConfig = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const text = JSON.stringify(raw);
+  return text.length <= 4000 ? JSON.parse(text) : {};
+};
 
 const strList = (v, max = 100) => (Array.isArray(v) ? v : String(v ?? '').split('\n')).map((x) => String(x).trim()).filter(Boolean).slice(0, max);
 
@@ -413,23 +421,9 @@ export function normalizeConfig(input = {}) {
     if (/^[\w-]+$/.test(k) && !FORBIDDEN_HEADERS.has(k.toLowerCase()) && String(v).length < 2000) headers[k.toLowerCase()] = String(v);
   }
   c.headers = headers;
-  const rawCms = input.cms && typeof input.cms === 'object' ? input.cms : {};
-  const type = rawCms.type === 'wordpress' || rawCms.type === 'prestashop' ? rawCms.type : '';
-  c.cms = {
-    type: c.mode === 'domain' ? '' : type,
-    token: String(rawCms.token ?? '').trim().slice(0, 200),
-    path: String(rawCms.path ?? '').trim().replace(/^\/+|\/+$/g, '').slice(0, 120),
-    intervalMin: Math.round(clamp(rawCms.intervalMin, 60, 10080, 720)),
-    alerts: rawCms.alerts !== false,
-    security: rawCms.security !== false,
-    codeScan: rawCms.codeScan !== false,
-    // Santé du site (disque, débogage, tâches planifiées…) : relevé et alertes de configuration (plugin ≥ 1.5).
-    health: rawCms.health !== false,
-    // Journal d'activité (plugin WordPress ≥ 1.7) : connexions, comptes, extensions ; IP tronquées, 90 jours. Activable site par site.
-    activity: rawCms.activity !== false,
-    // Jeton du widget (état en lecture seule affiché dans l'administration du CMS) : aléatoire, distinct du jeton du plugin.
-    widgetToken: /^[A-Za-z0-9_-]{16,64}$/.test(String(rawCms.widgetToken ?? '')) ? String(rawCms.widgetToken) : '',
-  };
+  // Configuration de l'extension (voir src/extension.js) : normalisée par elle ; sans extension, l'objet est gardé tel quel (borné), pour ne rien perdre.
+  const extension = getExtension();
+  c.cms = extension?.normalizeConfig ? extension.normalizeConfig(input.cms, { mode: c.mode }) : passthroughConfig(input.cms);
   c.pages = c.mode === 'domain' ? [] : pageList(input.pages);
   const rawStatus = input.statusPage && typeof input.statusPage === 'object' ? input.statusPage : {};
   c.statusPage = {

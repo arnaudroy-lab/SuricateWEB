@@ -5,7 +5,7 @@
 import {
   DAY_MS, alertsBetween, currentOutage, uptimeBetween, uptimeSummary, uptimeBars, outageList, outagesBetween, maintenanceBetween, listMaintenance, responseBetween,
 } from './db.js';
-import { phpSupport, codeAlertFiles } from './cms-alerts.js';
+import { hook, getExtension } from './extension.js';
 import { esc, fmtDuration } from './util.js';
 import { tr, plural, currentLang, currentLocale, decimalSep } from './i18n.js';
 
@@ -17,9 +17,9 @@ export const serverTz = () => -new Date().getTimezoneOffset();
 
 /** Un jour local en texte, à partir d'un horodatage UTC et du décalage. */
 const local = (t, tz) => new Date(t + tz * 60e3);
-const fmtDate = (t, tz) => local(t, tz).toLocaleDateString(currentLocale(), { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+export const fmtDate = (t, tz) => local(t, tz).toLocaleDateString(currentLocale(), { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
 const fmtDateTime = (t, tz) => local(t, tz).toLocaleString(currentLocale(), { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-const fmtShort = (t, tz) => local(t, tz).toLocaleString(currentLocale(), { timeZone: 'UTC', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+export const fmtShort = (t, tz) => local(t, tz).toLocaleString(currentLocale(), { timeZone: 'UTC', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** Disponibilité tronquée, jamais arrondie vers le haut (99,9996 % ne doit pas s'afficher « 100 % »). */
 export function fmtPct(u) {
@@ -91,47 +91,15 @@ export async function siteReport(w, range, now = Date.now()) {
   out.alerts = { critical: rows.filter((r) => r.severity === 'critical').length, warning: rows.filter((r) => r.severity === 'warning').length, items: rows.slice(0, 15) };
   out.alerts.total = rows.length;
 
-  const cms = w.state.cms;
-  if (!domainOnly && w.config.cms.type && cms?.core) {
-    const pending = [
-      ...(cms.core?.available ? [{ kind: 'core', name: w.config.cms.type === 'prestashop' ? 'PrestaShop' : 'WordPress', current: cms.core.current, available: cms.core.available }] : []),
-      ...(cms.extensions || []).filter((e) => e.available).map((e) => ({ kind: 'ext', name: e.name, current: e.current, available: e.available })),
-      ...(cms.themes || []).filter((e) => e.available).map((e) => ({ kind: 'theme', name: e.name, current: e.current, available: e.available })),
-    ];
-    // Un contrôle désactivé pour ce site ne doit plus apparaître : les anciens résultats resteraient affichés comme s'ils étaient d'actuels.
-    const secured = w.config.cms.security !== false;
-    const integ = secured ? cms.integrity : null;
-    const issues = integ?.core ? countIssues(integ) : null;
-    const code = secured && w.config.cms.codeScan !== false ? codeSummary(cms.code) : null;
-    out.cms = {
-      type: w.config.cms.type, version: cms.cmsVersion || cms.core?.current || null, php: cms.php || null, phpSupport: phpSupport(cms.php, now),
-      checkedAt: cms.checkedAt || null, pending,
-      watched: { extensions: (cms.extensions || []).length, themes: (cms.themes || []).length },
-      applied: (cms.history || []).filter((h) => h.ts >= from && h.ts < to),
-      integrity: integ?.checkedAt && integ.core ? { checkedAt: integ.checkedAt, issues, partial: !!integ.partial || !integ.core.known } : null,
-      code,
-      admins: secured && cms.admins ? { count: cms.admins.count, flagged: (cms.admins.added?.length || 0) + (cms.admins.extra || 0) } : null,
-    };
-  }
+  // Extension : données ajoutées au rapport (voir src/extension.js).
+  const extData = await hook('reportData', null, w, range, now);
+  if (extData) out.cms = extData;
   out.tlsExpires = w.state.tls?.expires || null;
   out.domainExpires = w.state.rdap?.expires || null;
   return out;
 }
 
 const safeHost = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
-
-/** Recherche de code suspect : seulement des nombres (jamais un chemin de fichier ni un motif) ; null tant qu'aucune analyse n'a abouti. */
-function codeSummary(code) {
-  if (!code?.checkedAt || code.enabled === false) return null;
-  const alerting = codeAlertFiles(code);
-  const toReview = (code.files || []).filter((f) => !f.known && f.level !== 'vendor').length - alerting.length;
-  return { checkedAt: code.checkedAt, alerting: alerting.length, critical: alerting.some((f) => f.level === 'strong' && f.origin === 'change'), toReview: Math.max(0, toReview), tracked: code.inventory || 0 };
-}
-
-function countIssues(integ) {
-  const n = (s) => (s?.modified?.length || 0) + (s?.added?.length || 0);
-  return n(integ.core) + (integ.plugins || []).reduce((t, p) => t + n(p), 0) + (integ.uploads?.php?.length || 0);
-}
 
 // ───────────── Mise en page ─────────────
 
@@ -220,44 +188,6 @@ function outageTable(list, tz) {
 <td class="r"><b>${esc(fmtDuration(o.duration))}</b></td></tr>`).join('')}</tbody></table>`;
 }
 
-const kindOf = (k) => ({ core: tr('noyau'), ext: tr('extension'), theme: tr('thème') })[k];
-
-/** Pastille de synthèse « sécurité » d'un site (tableau d'un groupe) : à vérifier dès qu'un contrôle signale quelque chose. */
-function securityPill(c) {
-  if (!c || (!c.integrity && !c.code && !c.admins)) return '<span class="pill mute">—</span>';
-  const n = (c.integrity?.issues || 0) + (c.code?.alerting || 0) + (c.admins?.flagged || 0);
-  return n ? `<span class="pill crit">${plural(n, tr('point à vérifier'), tr('points à vérifier'))}</span>` : ('<span class="pill ok">' + tr('Rien à signaler') + '</span>');
-}
-
-function cmsSection(c, range, tz) {
-  const shop = c.type === 'prestashop';
-  const label = shop ? 'PrestaShop' : 'WordPress';
-  const rows = [];
-  rows.push(`<p><b>${esc(label)} ${esc(c.version || '')}</b>${c.php ? tr(' · PHP {esc}', { esc: esc(c.php) }) : ''}${c.phpSupport?.status === 'ended' ? tr((' <span class="pill crit">' + tr('PHP non maintenu') + '</span>')) : c.phpSupport?.status === 'ending' ? tr((' <span class="pill warn">' + tr('fin de support de PHP proche') + '</span>')) : ''}
-<span class="muted rp-small"> · ${tr('relevé du {date}', { date: esc(fmtDate(c.checkedAt, tz)) })}${c.watched.extensions || c.watched.themes ? ` · ${plural(c.watched.extensions, tr('extension surveillée'), tr('extensions surveillées'))}, ${plural(c.watched.themes, tr('thème surveillé'), tr('thèmes surveillés'))}` : ''}</span></p>`);
-  rows.push(`<h3>${tr('Mises à jour effectuées')} ${range.partial ? tr('ce mois-ci') : tr('sur la période')}</h3>`);
-  rows.push(c.applied.length
-    ? `<ul class="rp-list">${c.applied.map((h) => `<li>${esc(h.name)} (${kindOf(h.kind) || h.kind}) : ${h.from ? `${esc(h.from)} → ` : tr('installée en ')}<b>${esc(h.to)}</b> <span class="muted rp-small">· ${esc(fmtDate(h.ts, tz))}</span></li>`).join('')}</ul>`
-    : ('<p class="rp-empty">' + tr('Aucune mise à jour détectée sur la période.') + '</p>'));
-  rows.push(('<h3>' + tr('Mises à jour en attente') + '</h3>'));
-  rows.push(c.pending.length
-    ? `<ul class="rp-list">${c.pending.slice(0, 12).map((p) => `<li>${esc(p.name)} (${kindOf(p.kind)}) : ${esc(p.current || '—')} → <b>${esc(p.available)}</b></li>`).join('')}${c.pending.length > 12 ? `<li class="muted">… et ${c.pending.length - 12} autre(s)</li>` : ''}</ul>`
-    : ('<p><span class="pill ok">' + tr('Tout est à jour') + '</span></p>'));
-  if (c.integrity || c.code || c.admins) {
-    rows.push(('<h3>' + tr('Sécurité du site') + '</h3><ul class="rp-checks">'));
-    if (c.integrity) {
-      // PrestaShop ne publie pas de sommes de contrôle : son module cherche seulement des fichiers PHP là où il ne devrait pas y en avoir.
-      rows.push(`<li><span class="k">${shop ? tr('Fichiers PHP dans les dossiers de médias') : tr('Intégrité des fichiers{v1}', { v1: c.integrity.partial ? tr(' (contrôle partiel)') : '' })}</span>${c.integrity.issues ? `<span class="pill crit">${plural(c.integrity.issues, tr('anomalie'), tr('anomalies'))}</span>` : `<span class="pill ok">${shop ? tr('aucun') : tr('aucune anomalie')}</span>`} <span class="muted rp-small">${tr('contrôlé le {date}', { date: esc(fmtDate(c.integrity.checkedAt, tz)) })}</span></li>`);
-    }
-    if (c.code) {
-      const k = c.code;
-      rows.push(`<li><span class="k">${tr('Recherche de code suspect')}</span>${k.alerting ? `<span class="pill ${k.critical ? 'crit' : 'warn'}">${plural(k.alerting, tr('fichier à vérifier'), tr('fichiers à vérifier'))}</span>` : ('<span class="pill ok">' + tr('rien de suspect') + '</span>')}${k.toReview ? ` <span class="pill mute">${plural(k.toReview, tr('fichier à relire'), tr('fichiers à relire'))}</span>` : ''} <span class="muted rp-small">analysé le ${esc(fmtDate(k.checkedAt, tz))}${k.tracked ? ` · ${plural(k.tracked, tr('fichier suivi'), tr('fichiers suivis'))}` : ''}</span></li>`);
-    }
-    if (c.admins) rows.push(`<li><span class="k">${tr('Comptes administrateurs : {count}', { count: c.admins.count })}</span>${c.admins.flagged ? `<span class="pill crit">${plural(c.admins.flagged, tr('nouveau compte à vérifier'), tr('nouveaux comptes à vérifier'))}</span>` : ('<span class="pill ok">' + tr('aucun nouveau compte inconnu') + '</span>')}</li>`);
-    rows.push('</ul>');
-  }
-  return `<div class="card rp-card"><h2>${tr('Mises à jour et sécurité')}</h2>${rows.join('')}</div>`;
-}
 
 function siteSection(s, range, { multi = false } = {}) {
   const tz = range.tz;
@@ -286,7 +216,7 @@ function siteSection(s, range, { multi = false } = {}) {
 <table class="rp-table"><tbody>${s.alerts.items.map((a) => `<tr><td style="white-space:nowrap">${esc(fmtShort(a.ts, tz))}</td><td>${esc(a.title)}</td></tr>`).join('')}</tbody></table>${s.alerts.total > s.alerts.items.length ? `<p class="muted rp-small">… et ${s.alerts.total - s.alerts.items.length} autre(s).</p>` : ''}`
     : ('<p><span class="pill ok">' + tr('Aucun incident') + '</span> <span class="muted">' + tr('Aucune anomalie détectée sur la période.') + '</span></p>')}</div>`);
 
-  if (s.cms) parts.push(cmsSection(s.cms, range, tz));
+  if (s.cms) parts.push(hook('reportCard', '', s.cms, range, tz));
 
   const certs = [];
   if (s.tlsExpires) certs.push(tr('Certificat TLS valide jusqu\'au <b>{date}</b>', { date: esc(fmtDate(s.tlsExpires, tz)) }));
@@ -302,11 +232,12 @@ function siteSection(s, range, { multi = false } = {}) {
 export function renderReport({ title, sites, range, nav, generatedAt = Date.now(), appName = 'SuricateWeb' }) {
   const tz = range.tz;
   const multi = sites.length > 1;
+  const extCols = !!getExtension()?.reportSummary; // colonnes de synthèse de l'extension
   const link = (month, text, cls = '') => (month ? `<a class="btn ${cls}" href="${esc(`${nav.base}${nav.base.includes('?') ? '&' : '?'}month=${month}&tz=${tz}`)}">${text}</a>` : `<a class="btn" aria-disabled="true">${text}</a>`);
   const head = `<header class="rp-top">${brand()}<div class="rp-nav noprint">${link(range.prev, tr('← Mois précédent'))}${link(range.next, tr('Mois suivant →'))}<button class="btn primary" type="button" data-print>${tr('Imprimer / PDF')}</button></div></header>
 <div class="rp-head"><h1>Rapport mensuel — ${esc(range.label)}</h1><p>${esc(title)}${range.partial ? tr(' · mois en cours (jusqu’à ce jour)') : ''}</p></div>`;
-  const summary = multi ? `<div class="card rp-card"><h2>${tr('Synthèse')}</h2><table class="rp-table"><thead><tr><th>${tr('Site')}</th><th class="r">${tr('Disponibilité')}</th><th class="r">${tr('Pannes')}</th><th class="r">${tr('Incidents')}</th><th class="r">${tr('Mises à jour en attente')}</th><th class="r">${tr('Sécurité')}</th></tr></thead><tbody>${sites.map((s) => `<tr>
-<td><b>${esc(s.name)}</b><br><span class="muted rp-small">${esc(s.host)}</span></td><td class="r">${s.domainOnly ? '<span class="pill mute">—</span>' : upPill(s.uptime)}</td><td class="r">${s.domainOnly ? '—' : s.outageCount}</td><td class="r">${s.alerts.total}</td><td class="r">${s.cms ? s.cms.pending.length : '—'}</td><td class="r">${securityPill(s.cms)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  const summary = multi ? `<div class="card rp-card"><h2>${tr('Synthèse')}</h2><table class="rp-table"><thead><tr><th>${tr('Site')}</th><th class="r">${tr('Disponibilité')}</th><th class="r">${tr('Pannes')}</th><th class="r">${tr('Incidents')}</th>${extCols ? `<th class="r">${tr('Mises à jour en attente')}</th><th class="r">${tr('Sécurité')}</th>` : ''}</tr></thead><tbody>${sites.map((s) => `<tr>
+<td><b>${esc(s.name)}</b><br><span class="muted rp-small">${esc(s.host)}</span></td><td class="r">${s.domainOnly ? '<span class="pill mute">—</span>' : upPill(s.uptime)}</td><td class="r">${s.domainOnly ? '—' : s.outageCount}</td><td class="r">${s.alerts.total}</td>${extCols ? (({ pending, security }) => `<td class="r">${pending}</td><td class="r">${security}</td>`)(hook('reportSummary', { pending: '—', security: '—' }, s.cms)) : ''}</tr>`).join('')}</tbody></table></div>` : '';
   const body = sites.map((s, i) => `<section class="rp-site ${multi && i ? 'rp-sep' : ''}">${multi ? `<h1 class="rp-sitehead">${esc(s.name)}</h1>` : ''}${siteSection(s, range, { multi: false })}</section>`).join('\n');
   const foot = `<footer class="rp-foot">${tr('Rapport généré par {app} le {when}. Période : du {from} au {to}.', { app: esc(appName), when: esc(fmtDateTime(generatedAt, tz)), from: esc(fmtDate(range.from, tz)), to: esc(fmtDate(Math.min(range.to, generatedAt) - 1, tz)) })}</footer>`;
   return page({ title: tr('Rapport {label} — {title}', { label: range.label, title }), body: head + summary + body + foot, head: '<script src="/report.js" defer></script>' });

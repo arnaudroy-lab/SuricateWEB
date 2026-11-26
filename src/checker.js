@@ -14,7 +14,6 @@ import {
   getWatch, settingsFor, saveRun, insertSnapshot, latestSnapshot, snapshotLines, insertCheck, insertAlert, markNotified,
   prune, openOutage, closeOutage, upsertDaily, activeMaintenance, pendingMaintenanceAlerts, markMaintenanceSummarized,
 } from './db.js';
-import { cmsIncidents, cmsIncidentGroup } from './cms-alerts.js';
 import { resolvePage, pageName } from './pages.js';
 import { parseHtml, selectAll, textLines, extractFeatures } from './html.js';
 import { diffLines, preview } from './diff.js';
@@ -23,6 +22,7 @@ import { getExtensions } from './extensions.js';
 import { captureWatch, engine } from './screenshot.js';
 import { bus } from './events.js';
 import { compileSafeRegex } from './safe-regex.js';
+import { getExtension } from './extension.js';
 import { sha1, registrable, isIp, SEV, fmtDuration } from './util.js';
 import { tr, plural, runWithLang, currentLocale } from './i18n.js';
 
@@ -335,7 +335,7 @@ const catOf = (key) => {
   const b = key.split(':')[0];
   if (['down', 'http', 'downgrade'].includes(b)) return 'net';
   if (b.startsWith('tls')) return 'tls';
-  if (b.startsWith('cms') || b === 'php_eol') return 'cms';
+  if (getExtension()?.ownsIncident?.(key)) return 'ext'; // incidents de l'extension (voir src/extension.js)
   if (b.startsWith('page_')) return 'pages';
   if (b.startsWith('rdap')) return 'rdap';
   if (b.startsWith('dns')) return 'dns';
@@ -721,24 +721,21 @@ async function runCheckNow(id) {
     state.rdap = { ...(state.rdap || {}), checkedAt: now - RDAP_EVERY + 10 * 60e3 }; // réessai dans 10 min
   }
 
-  // ── CMS : mises à jour, support de PHP, intégrité des fichiers, comptes administrateurs (relevé séparé du plugin, 12 h par défaut) ──
-  if (!domainOnly && cfg.cms.type) {
-    const updates = cfg.cms.alerts !== false;
-    const security = cfg.cms.security !== false;
-    const health = cfg.cms.health !== false;
-    const activity = cfg.cms.activity !== false;
-    const groups = { security, health, updates, activity };
+  // ── Extension (aujourd'hui : le connecteur CMS) : ses incidents, évalués par ses propres règles (voir src/extension.js) ──
+  const ext = getExtension();
+  const extInc = ext?.incidents ? ext.incidents({ cfg, state, settings, now, domainOnly }) : null;
+  if (extInc?.active) {
     // Un groupe d'alertes désactivé : ses incidents disparaissent sans message « rétabli ».
     for (const k of Object.keys(state.incidents || {})) {
-      if (catOf(k) === 'cms' && !groups[cmsIncidentGroup(k)]) delete state.incidents[k];
+      if (catOf(k) === 'ext' && !extInc.keep(k)) delete state.incidents[k];
     }
-    if ((updates || security || health || activity) && state.cms?.core && state.cms.checkedAt) {
-      evaluated.add('cms');
-      for (const i of cmsIncidents(state.cms, { afterDays: settings.cmsAfterDays, now, updates, security, health, activity })) inc(i.key, i.severity, i.title, i.detail, i.count);
+    if (extInc.evaluated) {
+      evaluated.add('ext');
+      for (const i of extInc.list) inc(i.key, i.severity, i.title, i.detail, i.count);
     }
   } else {
-    // CMS retiré : ses incidents disparaissent sans message « rétabli ».
-    for (const k of Object.keys(state.incidents || {})) if (catOf(k) === 'cms') delete state.incidents[k];
+    // Extension absente ou sans objet pour ce site : ses incidents disparaissent sans message « rétabli ».
+    for (const k of Object.keys(state.incidents || {})) if (catOf(k) === 'ext') delete state.incidents[k];
   }
 
   // ── Transitions d'incidents ──
@@ -749,7 +746,7 @@ async function runCheckNow(id) {
     // même si le premier rappel a été marqué comme lu.
     // Un incident qui grossit (plus de fichiers suspects, de comptes, de mots) ré-alerte aussi : le premier message ne les mentionnait pas.
     const escalated = prev && (
-      ((key === 'rdap_expiring' || key === 'php_eol' || key.startsWith('cms_')) && (SEV[i.severity] || 0) > (SEV[prev.severity] || 0))
+      ((key === 'rdap_expiring' || getExtension()?.ownsIncident?.(key)) && (SEV[i.severity] || 0) > (SEV[prev.severity] || 0))
       || (i.count != null && i.count > (prev.count ?? 0)));
     // Incident apparu pendant une maintenance : son alerte a été retenue, on prévient dès la reprise s'il est toujours là.
     const deferred = prev?.muted && !maint;

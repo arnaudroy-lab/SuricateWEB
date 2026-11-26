@@ -5,6 +5,7 @@
 import { defaultNotifier } from './notify.js';
 import { createNetGuard } from './net-guard.js';
 import { dueWatchIds } from './db.js';
+import { setExtension } from './extension.js';
 
 const defaults = () => ({
   /** { resolveChannels(watch, alerts, settings) → canaux } — voir src/notify.js. */
@@ -41,4 +42,5 @@ export function configureExtensions({ notifier, scheduler, netGuard, entitlement
 /** Remet les valeurs d'origine (tests). */
 export const resetExtensions = () => {
   current = defaults();
+  setExtension(null);
 };

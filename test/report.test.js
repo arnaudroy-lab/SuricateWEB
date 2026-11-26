@@ -8,6 +8,8 @@ import { join } from 'node:path';
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'suricate-report-'));
 
 const dbm = await import('../src/db.js');
+// Extension CMS installée (tests de fonctions appelées sans createApp ; createApp l'installe lui-même) — voir src/extension.js
+(await import('../src/extension.js')).setExtension((await import('../src/cms-extension.js')).createCmsExtension());
 const { monthRange, siteReport, renderReport, statusData, renderStatusPage, fmtPct } = await import('../src/report.js');
 const { REPORT_CSP } = await import('../src/http.js');
 

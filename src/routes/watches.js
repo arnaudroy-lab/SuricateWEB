@@ -2,8 +2,7 @@
 import { settingsFor, updateWatch, deleteWatch, normalizeConfig, closeOutage, listMaintenance, recentChecks, markWatchAlertsRead } from '../db.js';
 import { enqueue } from '../scheduler.js';
 import { resolvePage } from '../pages.js';
-import { phpSupport, assessHealth, hardeningRows } from '../cms-alerts.js';
-import { widgetUrl } from './widget.js';
+import { hook } from '../extension.js';
 import { removeWatchShots, pruneWatchShots } from '../screenshot.js';
 import { fetchPage, analyze, describeError } from '../checker.js';
 import { bus } from '../events.js';
@@ -23,7 +22,7 @@ export default function register({ route }) {
     const { data, cfg } = await watchInput(ctx, ctx.body);
     await SELECTOR_CHECK(cfg);
     let w = await ctx.data.createWatch(data);
-    if (w.config.cms.type) w = await updateWatch(w.id, { nextCms: Date.now() });
+    w = (await hook('watchCreated', null, w)) ?? w; // l'extension peut planifier son premier relevé (voir src/extension.js)
     enqueue(w.id);
     await ctx.app.emit('onWatchCreated', ctx, w);
     return await summarize(w, await buildCtx(ctx));
@@ -43,7 +42,7 @@ export default function register({ route }) {
         server: state.server || '', scripts: state.scripts?.length ?? null, linkHosts: state.linkHosts?.length ?? null,
         baseline: !!state.baseline,
       },
-      cms: state.cms ? { ...state.cms, phpSupport: phpSupport(state.cms.php), widgetUrl: widgetUrl(w), ...(state.cms.health?.checkedAt ? { health: { ...state.cms.health, checks: assessHealth(state.cms.health, state.cms.cms), hardeningRows: hardeningRows(state.cms.health.hardening) } } : {}) } : null,
+      ...hook('detailFields', {}, w), // champs de l'extension
       pages: w.config.pages.map((p) => {
         const href = resolvePage(w.url, p);
         const st = href ? state.pages?.[href] : null;
@@ -63,10 +62,7 @@ export default function register({ route }) {
     // (la limite de conservation n'a aucun effet sur l'image : la modifier ne déclenche pas de capture)
     const sameLook = ({ keep, ...look }) => JSON.stringify(look);
     const reshoot = data.url !== w.url || sameLook(cfg.screenshot) !== sameLook(w.config.screenshot);
-    const cmsOn = cfg.mode !== 'domain' && !!cfg.cms.type;
-    const cmsChanged = JSON.stringify(cfg.cms) !== JSON.stringify(w.config.cms) || data.url !== w.url;
-    const nextCms = cmsOn ? (cmsChanged || !(w.nextCms > 0) ? Date.now() : w.nextCms) : 0;
-    const u = await updateWatch(w.id, { ...data, state, nextRun: data.enabled ? 0 : w.nextRun, ...(reshoot ? { nextShot: 0 } : {}), nextCms });
+    const u = await updateWatch(w.id, { ...data, state, nextRun: data.enabled ? 0 : w.nextRun, ...(reshoot ? { nextShot: 0 } : {}), ...hook('updatePatch', {}, { prev: w, cfg, data }) });
     await pruneWatchShots(u.id); // une limite abaissée s'applique tout de suite
     await ctx.app.emit('onWatchUpdated', ctx, u);
     return await summarize(u, await buildCtx(ctx));
